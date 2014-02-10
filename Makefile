@@ -1,191 +1,109 @@
-# Makefile for buildroot2
+# Makefile for OpenWrt
 #
-# Copyright (C) 1999-2004 by Erik Andersen <andersen@codepoet.org>
+# Copyright (C) 2007 OpenWrt.org
 #
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-# General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+# This is free software, licensed under the GNU General Public License v2.
+# See /LICENSE for more information.
 #
 
-#--------------------------------------------------------------
-# Just run 'make menuconfig', configure stuff, then run 'make'.
-# You shouldn't need to mess with anything beyond this point...
-#--------------------------------------------------------------
-TOPDIR=./
-CONFIG_CONFIG_IN = Config.in
-CONFIG_DEFCONFIG = .defconfig
-CONFIG = package/config
+TOPDIR:=${CURDIR}
+LC_ALL:=C
+LANG:=C
+export TOPDIR LC_ALL LANG
 
-noconfig_targets := menuconfig config oldconfig randconfig \
-	defconfig allyesconfig allnoconfig release tags
+empty:=
+space:= $(empty) $(empty)
+$(if $(findstring $(space),$(TOPDIR)),$(error ERROR: The path to the OpenWrt directory must not include any spaces))
 
-# Pull in the user's configuration file
-ifeq ($(filter $(noconfig_targets),$(MAKECMDGOALS)),)
--include $(TOPDIR).config
-endif
+world:
 
-ifeq ($(BR2_TAR_VERBOSITY),y)
-TAR_OPTIONS=-xvf
+include $(TOPDIR)/include/host.mk
+
+ifneq ($(OPENWRT_BUILD),1)
+  # XXX: these three lines are normally defined by rules.mk
+  # but we can't include that file in this context
+  empty:=
+  space:= $(empty) $(empty)
+  _SINGLE=export MAKEFLAGS=$(space);
+
+  override OPENWRT_BUILD=1
+  export OPENWRT_BUILD
+  GREP_OPTIONS=
+  export GREP_OPTIONS
+  include $(TOPDIR)/include/debug.mk
+  include $(TOPDIR)/include/depends.mk
+  include $(TOPDIR)/include/toplevel.mk
 else
-TAR_OPTIONS=-xf
+  include rules.mk
+  include $(INCLUDE_DIR)/depends.mk
+  include $(INCLUDE_DIR)/subdir.mk
+  include target/Makefile
+  include package/Makefile
+  include tools/Makefile
+  include toolchain/Makefile
+
+$(toolchain/stamp-install): $(tools/stamp-install)
+$(target/stamp-compile): $(toolchain/stamp-install) $(tools/stamp-install) $(BUILD_DIR)/.prepared
+$(package/stamp-compile): $(target/stamp-compile) $(package/stamp-cleanup)
+$(package/stamp-install): $(package/stamp-compile)
+$(target/stamp-install): $(package/stamp-compile) $(package/stamp-install)
+
+printdb:
+	@true
+
+prepare: $(target/stamp-compile)
+
+clean: FORCE
+	rm -rf $(BUILD_DIR) $(BIN_DIR) $(BUILD_LOG_DIR)
+
+dirclean: clean
+	rm -rf $(STAGING_DIR) $(STAGING_DIR_HOST) $(STAGING_DIR_TOOLCHAIN) $(TOOLCHAIN_DIR) $(BUILD_DIR_HOST) $(BUILD_DIR_TOOLCHAIN)
+	rm -rf $(TMP_DIR)
+
+ifndef DUMP_TARGET_DB
+$(BUILD_DIR)/.prepared: Makefile
+	@mkdir -p $$(dirname $@)
+	@touch $@
+
+tmp/.prereq_packages: .config
+	unset ERROR; \
+	for package in $(sort $(prereq-y) $(prereq-m)); do \
+		$(_SINGLE)$(NO_TRACE_MAKE) -s -r -C package/$$package prereq || ERROR=1; \
+	done; \
+	if [ -n "$$ERROR" ]; then \
+		echo "Package prerequisite check failed."; \
+		false; \
+	fi
+	touch $@
 endif
 
-ifeq ($(strip $(BR2_HAVE_DOT_CONFIG)),y)
-
-#############################################################
-#
-# The list of stuff to build for the target toolchain
-# along with the packages to build for the target.
-#
-##############################################################
-TARGETS:=linux-headers host-sed uclibc-configured binutils gcc uclibc-target-utils
-include toolchain/Makefile.in
-include toolchain/*/Makefile.in
-include package/Makefile.in
-include package/*/Makefile.in
-include target/Makefile.in
-include target/*/Makefile.in
-
-#############################################################
-#
-# You should probably leave this stuff alone unless you know
-# what you are doing.
-#
-#############################################################
-
-
-
-all:   world
-
-# In this section, we need .config
-include .config.cmd
-
-TARGETS_CLEAN:=$(patsubst %,%-clean,$(TARGETS))
-TARGETS_SOURCE:=$(patsubst %,%-source,$(TARGETS))
-
-world: $(DL_DIR) $(BUILD_DIR) $(STAGING_DIR) $(TARGET_DIR) $(TARGETS)
-
-.PHONY: all world clean distclean source $(TARGETS) \
-	$(TARGETS_CLEAN) $(TARGETS_DIRCLEAN) $(TARGETS_SOURCE) \
-	$(DL_DIR) $(BUILD_DIR) $(TOOL_BUILD_DIR) $(STAGING_DIR)
-
-include toolchain/*/*.mk
-include package/*/*.mk
-include target/*/*.mk
-
-#############################################################
-#
-# staging and target directories do NOT list these as
-# dependancies anywhere else
-#
-#############################################################
-$(DL_DIR):
-	@mkdir -p $(DL_DIR)
-
-$(BUILD_DIR):
-	@mkdir -p $(BUILD_DIR)
-
-$(TOOL_BUILD_DIR):
-	@mkdir -p $(TOOL_BUILD_DIR)
-
-$(STAGING_DIR):
-	@mkdir -p $(STAGING_DIR)/lib
-	@mkdir -p $(STAGING_DIR)/include
-	@mkdir -p $(STAGING_DIR)/$(REAL_GNU_TARGET_NAME)
-	@ln -sf ../lib $(STAGING_DIR)/$(REAL_GNU_TARGET_NAME)/lib
-
-$(TARGET_DIR):
-	zcat target/default/skel.tar.gz | tar -C $(BUILD_DIR) -xf -
-	cp -a target/default/target_skeleton/* $(TARGET_DIR)/
-	-find $(TARGET_DIR) -type d -name CVS -exec rm -rf {} \; > /dev/null 2>&1
-
-source: $(TARGETS_SOURCE)
-
-#############################################################
-#
-# Cleanup and misc junk
-#
-#############################################################
-clean:
-	rm -rf $(BUILD_DIR) $(IMAGE).*
-	@$(MAKE) -C $(CONFIG) clean
-
-distclean: clean
-	rm -rf $(DL_DIR) $(TOOL_BUILD_DIR) .config
-
-sourceball:
-	rm -rf $(BUILD_DIR)
-	set -e; \
-	cd ..; \
-	rm -f buildroot.tar.bz2; \
-	tar -cvf buildroot.tar buildroot; \
-	bzip2 -9 buildroot.tar; \
-
-
-else # ifeq ($(strip $(BR2_HAVE_DOT_CONFIG)),y)
-
-all: menuconfig
-
-# configuration
-# ---------------------------------------------------------------------------
-
-$(CONFIG)/conf:
-	$(MAKE) -C $(CONFIG) conf
-	-@if [ ! -f .config ] ; then \
-		cp $(CONFIG_DEFCONFIG) .config; \
-	fi
-$(CONFIG)/mconf:
-	$(MAKE) -C $(CONFIG) ncurses conf mconf
-	-@if [ ! -f .config ] ; then \
-		cp $(CONFIG_DEFCONFIG) .config; \
+# check prerequisites before starting to build
+prereq: $(target/stamp-prereq) tmp/.prereq_packages
+	@if [ ! -f "$(INCLUDE_DIR)/site/$(REAL_GNU_TARGET_NAME)" ]; then \
+		echo 'ERROR: Missing site config for target "$(REAL_GNU_TARGET_NAME)" !'; \
+		echo '       The missing file will cause configure scripts to fail during compilation.'; \
+		echo '       Please provide a "$(INCLUDE_DIR)/site/$(REAL_GNU_TARGET_NAME)" file and restart the build.'; \
+		exit 1; \
 	fi
 
-menuconfig: $(CONFIG)/mconf
-	@$(CONFIG)/mconf $(CONFIG_CONFIG_IN)
+prepare: .config $(tools/stamp-install) $(toolchain/stamp-install)
+world: prepare $(target/stamp-compile) $(package/stamp-compile) $(package/stamp-install) $(target/stamp-install) FORCE
+	$(_SINGLE)$(SUBMAKE) -r package/index
 
-config: $(CONFIG)/conf
-	@$(CONFIG)/conf $(CONFIG_CONFIG_IN)
+# update all feeds, re-create index files, install symlinks
+package/symlinks:
+	$(SCRIPT_DIR)/feeds update -a
+	$(SCRIPT_DIR)/feeds install -a
 
-oldconfig: $(CONFIG)/conf
-	@$(CONFIG)/conf -o $(CONFIG_CONFIG_IN)
+# re-create index files, install symlinks
+package/symlinks-install:
+	$(SCRIPT_DIR)/feeds update -i
+	$(SCRIPT_DIR)/feeds install -a
 
-randconfig: $(CONFIG)/conf
-	@$(CONFIG)/conf -r $(CONFIG_CONFIG_IN)
+# remove all symlinks, don't touch ./feeds
+package/symlinks-clean:
+	$(SCRIPT_DIR)/feeds uninstall -a
 
-allyesconfig: $(CONFIG)/conf
-	#@$(CONFIG)/conf -y $(CONFIG_CONFIG_IN)
-	#sed -i -e "s/^CONFIG_DEBUG.*/# CONFIG_DEBUG is not set/" .config
-	@$(CONFIG)/conf -o $(CONFIG_CONFIG_IN)
+.PHONY: clean dirclean prereq prepare world package/symlinks package/symlinks-install package/symlinks-clean
 
-allnoconfig: $(CONFIG)/conf
-	@$(CONFIG)/conf -n $(CONFIG_CONFIG_IN)
-
-defconfig: $(CONFIG)/conf
-	@$(CONFIG)/conf -d $(CONFIG_CONFIG_IN)
-
-#############################################################
-#
-# Cleanup and misc junk
-#
-#############################################################
-clean:
-	@$(MAKE) -C $(CONFIG) clean
-
-distclean: clean
-
-endif # ifeq ($(strip $(BR2_HAVE_DOT_CONFIG)),y)
-
-.PHONY: dummy subdirs release distclean clean config oldconfig \
-	menuconfig tags check test depend
-
-
+endif

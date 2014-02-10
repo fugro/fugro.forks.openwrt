@@ -1,76 +1,75 @@
 # Choose gcc version.
-# WARNING -- 2.95 currently only builds for i386, arm, mips*, and powerpc.
-# WARNING -- 2.95 does not currently build natively for the target.
-
-comment "Gcc Options"
 
 choice
-	prompt "GCC compiler Version"
-	default BR2_GCC_VERSION_3_4_2
+	prompt "GCC compiler Version" if TOOLCHAINOPTS
+	default GCC_USE_VERSION_4_4_7 if avr32
+	default GCC_USE_VERSION_4_6_LINARO
 	help
 	  Select the version of gcc you wish to use.
 
-	config BR2_GCC_VERSION_2_95
-		bool "gcc 2.95"
-		depends on BR2_arm || BR2_i386 || BR2_mips || BR2_powerpc
+	config GCC_USE_VERSION_4_4_7
+		select GCC_VERSION_4_4_7
+		bool "gcc 4.4.7"
+		depends on avr32
 
-	config BR2_GCC_VERSION_3_3_3
-		bool "gcc 3.3.3"
+	config GCC_USE_VERSION_4_8_0
+		select GCC_VERSION_4_8_0
+		bool "gcc 4.8.0"
 
-	config BR2_GCC_VERSION_3_3_4
-		bool "gcc 3.3.4"
+	config GCC_USE_VERSION_4_6_LINARO
+		select GCC_VERSION_4_6_LINARO
+		bool "gcc 4.6.x with Linaro enhancements"
 
-	config BR2_GCC_VERSION_3_3_5
-		bool "gcc 3.3.5"
-
-	config BR2_GCC_VERSION_3_4_0
-		bool "gcc 3.4.0"
-
-	config BR2_GCC_VERSION_3_4_1
-		bool "gcc 3.4.1"
-
-	config BR2_GCC_VERSION_3_4_2
-		bool "gcc 3.4.2"
-
-	config BR2_GCC_VERSION_3_4_3
-		bool "gcc 3.4.3"
+	config GCC_USE_VERSION_4_8_LINARO
+		select GCC_VERSION_4_8_LINARO
+		bool "gcc 4.8.x with Linaro enhancements"
 
 endchoice
 
-config BR2_GCC_VERSION
+config GCC_USE_GRAPHITE
+	bool
+	prompt "Compile in support for the new Graphite framework in GCC 4.4+" if TOOLCHAINOPTS
+
+config GCC_USE_SYSTEM_PPL_CLOOG
+	bool
+	prompt "Use the system versions of PPL and CLooG"
+	depends on GCC_USE_GRAPHITE
+	default n
+
+config EXTRA_GCC_CONFIG_OPTIONS
 	string
-	default "2.95"      if BR2_GCC_VERSION_2_95
-	default "3.3.3"     if BR2_GCC_VERSION_3_3_3
-	default "3.3.4"     if BR2_GCC_VERSION_3_3_4
-	default "3.3.5"     if BR2_GCC_VERSION_3_3_5
-	default "3.4.0"     if BR2_GCC_VERSION_3_4_0
-	default "3.4.1"     if BR2_GCC_VERSION_3_4_1
-	default "3.4.2"     if BR2_GCC_VERSION_3_4_2
-	default "3.4.3"     if BR2_GCC_VERSION_3_4_3
-
-
-config BR2_GCC_USE_SJLJ_EXCEPTIONS
-	string
-	default "--enable-sjlj-exceptions"
-	help
-	    Currently the unwind stuff seems to work for staticly linked apps
-	    but not dynamic.  So use setjmp/longjmp exceptions by default.
-
-config BR2_EXTRA_GCC_CONFIG_OPTIONS
-	string "Additional gcc options"
+	prompt "Additional gcc configure options" if TOOLCHAINOPTS
 	default ""
 	help
 	    Any additional gcc options you may want to include....
 
-config BR2_INSTALL_LIBSTDCPP
-	bool "Build/install c++ compiler and libstdc++?"
+config SSP_SUPPORT
+	bool
+	prompt "Enable Stack-Smashing Protection support" if TOOLCHAINOPTS
 	default n
 	help
-	    Build/install c++ compiler and libstdc++?
+	    Enable Stack-Smashing Protection support
 
-config BR2_INSTALL_LIBGCJ
-	bool "Build/install java compiler and libgcj?"
+config SJLJ_EXCEPTIONS
+	bool
+	prompt "Use setjump()/longjump() exceptions" if TOOLCHAINOPTS
 	default n
-	depends on BR2_INSTALL_LIBSTDCPP
 	help
-	    Build/install java compiler and libgcj?
+	    Use old setjump()/longjump() exceptions instead of the newer
+	    frame unwinding exceptions handling routines.  Warning: increases
+	    code size and runtime memory usage.
+
+config INSTALL_LIBGCJ
+	bool
+	prompt "Build/install java compiler and GNU classpath ?" if TOOLCHAINOPTS
+	default n
+	help
+	    Build/install java compiler and GNU classpath ?
+
+
+config INSTALL_GFORTRAN
+	bool
+	prompt "Build/install fortran compiler?" if TOOLCHAINOPTS
+	default n
+	help
+	    Build/install GNU fortran compiler ?
