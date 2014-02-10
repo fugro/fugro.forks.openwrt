@@ -1,23 +1,21 @@
-# Choose uClibc options
-#
+# Choose uclibc version.
 
-comment "uClibc Options"
-
-config BR2_UCLIBC_VERSION_SNAPSHOT
-	bool "Use the daily snapshot of uClibc?"
-	default y
+choice
+	prompt "uClibc Version"
+	depends on TOOLCHAINOPTS && USE_UCLIBC
+	default UCLIBC_USE_VERSION_0_9_33
 	help
-	    Would you like to use the latest daily snapshot?
+	  Select the version of uClibc you wish to use.
 
-config BR2_USE_UCLIBC_SNAPSHOT
-	string
-	default "snapshot"
-	depends on BR2_UCLIBC_VERSION_SNAPSHOT
+	config UCLIBC_USE_VERSION_0_9_33
+		select UCLIBC_VERSION_0_9_33
+		bool "uClibc 0.9.33.2"
 
-config BR2_ENABLE_LOCALE
-	bool "Enable locale/gettext/i18n support?"
+endchoice
+
+# Debug version.
+
+config UCLIBC_ENABLE_DEBUG
+	bool "Build with debug information"
+	depends on TOOLCHAINOPTS && USE_UCLIBC
 	default n
-	help
-	    Enable locale/gettext/i18n support?
-
-
