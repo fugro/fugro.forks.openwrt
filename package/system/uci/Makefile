@@ -1,5 +1,6 @@
 #
-# Copyright (C) 2008-2013 OpenWrt.org
+# Copyright (C) 2008-2014 OpenWrt.org
+# Copyright (C) 2016 LEDE project
 #
 # This is free software, licensed under the GNU General Public License v2.
 # See /LICENSE for more information.
@@ -7,24 +8,19 @@
 
 include $(TOPDIR)/rules.mk
 
-UCI_VERSION=2014-02-18
-UCI_RELEASE=1
-
 PKG_NAME:=uci
-PKG_VERSION:=$(UCI_VERSION)$(if $(UCI_RELEASE),.$(UCI_RELEASE))
 PKG_RELEASE:=1
-PKG_REV:=393bc2b908ef44cb8b417126a35d4915c4cdfbc9
 
-PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
-PKG_SOURCE_URL:=git://nbd.name/uci.git
-PKG_SOURCE_SUBDIR:=uci-$(PKG_VERSION)
-PKG_SOURCE_VERSION:=$(PKG_REV)
+PKG_SOURCE_URL=$(PROJECT_GIT)/project/uci.git
 PKG_SOURCE_PROTO:=git
+PKG_SOURCE_DATE=2018-08-11
+PKG_SOURCE_VERSION:=4c8b4d6efc8302b508d261573351fffb75bd98c2
+PKG_MIRROR_HASH:=c1f0f565921c71ff9231508c7c249baacad4c3ae1a3fade25c37bcb2bf7a7b5f
 
-PKG_LICENSE:=LGPLv2.1 GPLv2
+PKG_LICENSE:=LGPL-2.1
 PKG_LICENSE_FILES:=
 
-PKG_MAINTAINER:=Felix Fietkau <nbd@openwrt.org>
+PKG_MAINTAINER:=Felix Fietkau <nbd@nbd.name>
 
 PKG_BUILD_PARALLEL:=0
 

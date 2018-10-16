@@ -9,6 +9,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=maccalc
 PKG_RELEASE:=1
+PKG_LICENSE:=GPL-2.0
 
 PKG_BUILD_DIR := $(BUILD_DIR)/$(PKG_NAME)
 
@@ -22,11 +23,6 @@ endef
 
 define Package/maccalc/description
  This package contains a MAC address manipulation utility.
-endef
-
-define Build/Prepare
-	mkdir -p $(PKG_BUILD_DIR)
-	$(CP) ./src/* $(PKG_BUILD_DIR)/
 endef
 
 define Build/Configure

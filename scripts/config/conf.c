@@ -5,6 +5,7 @@
 
 #include <locale.h>
 #include <ctype.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -13,6 +14,7 @@
 #include <getopt.h>
 #include <sys/stat.h>
 #include <sys/time.h>
+#include <errno.h>
 
 #include "lkc.h"
 
@@ -40,7 +42,7 @@ static int tty_stdio;
 static int valid_stdin = 1;
 static int sync_kconfig;
 static int conf_cnt;
-static char line[128];
+static char line[PATH_MAX];
 static struct menu *rootEntry;
 
 static void print_help(struct menu *menu)
@@ -108,7 +110,7 @@ static int conf_askvalue(struct symbol *sym, const char *def)
 		/* fall through */
 	case oldaskconfig:
 		fflush(stdout);
-		xfgets(line, 128, stdin);
+		xfgets(line, sizeof(line), stdin);
 		if (!tty_stdio)
 			printf("\n");
 		return 1;
@@ -310,7 +312,7 @@ static int conf_choice(struct menu *menu)
 			/* fall through */
 		case oldaskconfig:
 			fflush(stdout);
-			xfgets(line, 128, stdin);
+			xfgets(line, sizeof(line), stdin);
 			strip(line);
 			if (line[0] == '?') {
 				print_help(menu);
@@ -470,7 +472,7 @@ static struct option long_opts[] = {
 static void conf_usage(const char *progname)
 {
 
-	printf("Usage: %s [option] <kconfig-file>\n", progname);
+	printf("Usage: %s [-s] [option] <kconfig-file>\n", progname);
 	printf("[option] is _one_ of the following:\n");
 	printf("  --listnewconfig         List new options\n");
 	printf("  --oldaskconfig          Start a new configuration using a line-oriented program\n");
@@ -501,7 +503,11 @@ int main(int ac, char **av)
 
 	tty_stdio = isatty(0) && isatty(1) && isatty(2);
 
-	while ((opt = getopt_long(ac, av, "r:w:", long_opts, NULL)) != -1) {
+	while ((opt = getopt_long(ac, av, "r:w:s", long_opts, NULL)) != -1) {
+		if (opt == 's') {
+			conf_set_message_callback(NULL);
+			continue;
+		}
 		switch (opt) {
 		case silentoldconfig:
 			sync_kconfig = 1;
@@ -514,14 +520,24 @@ int main(int ac, char **av)
 		{
 			struct timeval now;
 			unsigned int seed;
+			char *seed_env;
 
 			/*
 			 * Use microseconds derived seed,
 			 * compensate for systems where it may be zero
 			 */
 			gettimeofday(&now, NULL);
-
 			seed = (unsigned int)((now.tv_sec + 1) * (now.tv_usec + 1));
+
+			seed_env = getenv("KCONFIG_SEED");
+			if( seed_env && *seed_env ) {
+				char *endp;
+				int tmp = (int)strtol(seed_env, &endp, 0);
+				if (*endp == '\0') {
+					seed = tmp;
+				}
+			}
+			fprintf( stderr, "KCONFIG_SEED=0x%X\n", seed );
 			srand(seed);
 			break;
 		}
@@ -622,7 +638,8 @@ int main(int ac, char **av)
 		conf_set_all_new_symbols(def_default);
 		break;
 	case randconfig:
-		conf_set_all_new_symbols(def_random);
+		/* Really nothing to do in this loop */
+		while (conf_set_all_new_symbols(def_random)) ;
 		break;
 	case defconfig:
 		conf_set_all_new_symbols(def_default);
@@ -664,7 +681,7 @@ int main(int ac, char **av)
 	} else if (input_mode == savedefconfig) {
 		if (conf_write_defconfig(defconfig_file)) {
 			fprintf(stderr, _("n*** Error while saving defconfig to: %s\n\n"),
-			        defconfig_file);
+				defconfig_file);
 			return 1;
 		}
 	} else if (input_mode != listnewconfig) {

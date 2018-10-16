@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Copyright (C) 2012-2013 OpenWrt.org
+# Copyright (C) 2012-2014 OpenWrt.org
 #
 
 [ -e /etc/config/ubootenv ] && exit 0
@@ -10,9 +10,20 @@ touch /etc/config/ubootenv
 . /lib/uboot-envtools.sh
 . /lib/functions.sh
 
-case "`cat /proc/device-tree/model`" in
-"RaidSonic ICY BOX IB-NAS62x0 (Rev B)")
+board=$(board_name)
+
+case "$board" in
+cloudengines,pogoe02|\
+cloudengines,pogoplugv4|\
+linksys,viper|\
+raidsonic,ib-nas62x0|\
+seagate,dockstar|\
+zyxel,nsa310b|\
+zyxel,nsa325)
 	ubootenv_add_uci_config "/dev/mtd1" "0x0" "0x20000" "0x20000"
+	;;
+linksys,audi)
+	ubootenv_add_uci_config "/dev/mtd1" "0x0" "0x4000" "0x4000"
 	;;
 esac
 

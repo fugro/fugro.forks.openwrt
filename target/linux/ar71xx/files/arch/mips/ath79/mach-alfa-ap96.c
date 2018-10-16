@@ -48,31 +48,12 @@ static struct gpio_keys_button alfa_ap96_gpio_keys[] __initdata = {
 	}
 };
 
-static int alfa_ap96_mmc_get_cd(struct device *dev)
-{
-        return !gpio_get_value(ALFA_AP96_GPIO_MICROSD_CD);
-}
-
 static struct mmc_spi_platform_data alfa_ap96_mmc_data = {
-	.get_cd		= alfa_ap96_mmc_get_cd,
+	.flags		= MMC_SPI_USE_CD_GPIO,
+	.cd_gpio	= ALFA_AP96_GPIO_MICROSD_CD,
+	.cd_debounce	= 1,
 	.caps		= MMC_CAP_NEEDS_POLL,
 	.ocr_mask	= MMC_VDD_32_33 | MMC_VDD_33_34,
-};
-
-static struct ath79_spi_controller_data ap96_spi0_cdata = {
-	.cs_type = ATH79_SPI_CS_TYPE_INTERNAL,
-	.cs_line = 0,
-	.is_flash = true,
-};
-
-static struct ath79_spi_controller_data ap96_spi1_cdata = {
-	.cs_type = ATH79_SPI_CS_TYPE_INTERNAL,
-	.cs_line = 1,
-};
-
-static struct ath79_spi_controller_data ap96_spi2_cdata = {
-	.cs_type = ATH79_SPI_CS_TYPE_INTERNAL,
-	.cs_line = 2,
 };
 
 static struct spi_board_info alfa_ap96_spi_info[] = {
@@ -81,20 +62,17 @@ static struct spi_board_info alfa_ap96_spi_info[] = {
 		.chip_select	= 0,
 		.max_speed_hz	= 25000000,
 		.modalias	= "m25p80",
-		.controller_data = &ap96_spi0_cdata
 	}, {
 		.bus_num	= 0,
 		.chip_select	= 1,
 		.max_speed_hz	= 25000000,
 		.modalias	= "mmc_spi",
 		.platform_data	= &alfa_ap96_mmc_data,
-		.controller_data = &ap96_spi1_cdata
 	}, {
 		.bus_num	= 0,
 		.chip_select	= 2,
 		.max_speed_hz	= 6250000,
 		.modalias	= "rtc-pcf2123",
-		.controller_data = &ap96_spi2_cdata
 	},
 };
 

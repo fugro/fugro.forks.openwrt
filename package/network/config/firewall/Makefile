@@ -1,5 +1,6 @@
 #
-# Copyright (C) 2013-2014 OpenWrt.org
+# Copyright (C) 2013-2016 OpenWrt.org
+# Copyright (C) 2016 LEDE project
 #
 # This is free software, licensed under the GNU General Public License v2.
 # See /LICENSE for more information.
@@ -8,16 +9,17 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=firewall
-PKG_VERSION:=2014-03-20
-PKG_RELEASE:=$(PKG_SOURCE_VERSION)
+PKG_RELEASE:=1
 
 PKG_SOURCE_PROTO:=git
-PKG_SOURCE_URL:=git://nbd.name/firewall3.git
-PKG_SOURCE_SUBDIR:=$(PKG_NAME)-$(PKG_VERSION)
-PKG_SOURCE_VERSION:=93aea77092b0c178fefe3ab95fc040534eda90a3
-PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION)-$(PKG_SOURCE_VERSION).tar.gz
-PKG_MAINTAINER:=Jo-Philipp Wich <jow@openwrt.org>
+PKG_SOURCE_URL=$(PROJECT_GIT)/project/firewall3.git
+PKG_SOURCE_DATE:=2018-07-26
+PKG_SOURCE_VERSION:=aa8846bb101054392b81f09bade120c021695892
+PKG_MIRROR_HASH:=cc2ff632744bdefbc64ad11dc18944b44af006c986367a28d6483ade6012effa
+PKG_MAINTAINER:=Jo-Philipp Wich <jo@mein.io>
+PKG_LICENSE:=ISC
 
+PKG_CONFIG_DEPENDS := CONFIG_IPV6
 
 include $(INCLUDE_DIR)/package.mk
 include $(INCLUDE_DIR)/cmake.mk
@@ -26,7 +28,7 @@ define Package/firewall
   SECTION:=net
   CATEGORY:=Base system
   TITLE:=OpenWrt C Firewall
-  DEPENDS:=+libubox +libubus +libuci +libip4tc +IPV6:libip6tc +libxtables +kmod-ipt-core +kmod-ipt-nat
+  DEPENDS:=+libubox +libubus +libuci +libip4tc +IPV6:libip6tc +libxtables +kmod-ipt-core +kmod-ipt-conntrack +IPV6:kmod-nf-conntrack6 +kmod-ipt-nat
 endef
 
 define Package/firewall/description
@@ -38,13 +40,8 @@ define Package/firewall/conffiles
 /etc/firewall.user
 endef
 
-define Build/Configure
-	$(foreach file,$(wildcard $(STAGING_DIR)/usr/lib/iptables/libext*.a),$(CP) $(file) $(PKG_BUILD_DIR)/$(notdir $(file));)
-	$(call Build/Configure/Default)
-endef
-
-TARGET_CFLAGS += -ffunction-sections -fdata-sections
-TARGET_LDFLAGS += -Wl,--gc-sections
+TARGET_CFLAGS += -ffunction-sections -fdata-sections -flto
+TARGET_LDFLAGS += -Wl,--gc-sections -flto
 CMAKE_OPTIONS += $(if $(CONFIG_IPV6),,-DDISABLE_IPV6=1)
 
 define Package/firewall/install
@@ -58,6 +55,8 @@ define Package/firewall/install
 	$(INSTALL_DATA) ./files/firewall.config $(1)/etc/config/firewall
 	$(INSTALL_DIR) $(1)/etc/
 	$(INSTALL_DATA) ./files/firewall.user $(1)/etc/firewall.user
+	$(INSTALL_DIR) $(1)/usr/share/fw3
+	$(INSTALL_DATA) $(PKG_BUILD_DIR)/helpers.conf $(1)/usr/share/fw3
 endef
 
 $(eval $(call BuildPackage,firewall))

@@ -6,21 +6,21 @@
 #
 include $(TOPDIR)/rules.mk
 
-ARCH:=mips
+ARCH:=mips64
 BOARD:=octeon
 BOARDNAME:=Cavium Networks Octeon
-FEATURES:=squashfs jffs2 pci usb
+FEATURES:=squashfs ramdisk pci usb
 CPU_TYPE:=octeon
-CPU_CFLAGS_octeon:=-march=octeon
-MAINTAINER:=John Crispin <blogic@openwrt.org>
+MAINTAINER:=John Crispin <john@phrozen.org>
 
-LINUX_VERSION:=3.10.34
-
-include $(INCLUDE_DIR)/target.mk
-
+KERNEL_PATCHVER:=4.14
 
 define Target/Description
 	Build firmware images for Cavium Networks Octeon-based boards.
 endef
+
+include $(INCLUDE_DIR)/target.mk
+
+DEFAULT_PACKAGES += mkf2fs e2fsprogs
 
 $(eval $(call BuildTarget))

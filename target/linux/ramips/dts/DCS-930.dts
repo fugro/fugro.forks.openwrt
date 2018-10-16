@@ -1,24 +1,17 @@
 /dts-v1/;
 
-/include/ "rt3050.dtsi"
+#include "rt3050.dtsi"
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/input/input.h>
 
 / {
-	compatible = "DCS-930", "ralink,rt3050-soc";
+	compatible = "dlink,dcs-930", "ralink,rt3050-soc";
 	model = "D-Link DCS-930";
-
-	pinctrl {
-		state_default: pinctrl0 {
-			gpio {
-				ralink,group = "i2c", "spi", "jtag", "mdio", "rgmii", "uartf";
-				ralink,function = "gpio";
-			};
-		};
-	};
 
 	cfi@1f000000 {
 		compatible = "cfi-flash";
 		reg = <0x1f000000 0x400000>;
-
 		bank-width = <2>;
 		device-width = <2>;
 		#address-cells = <1>;
@@ -60,17 +53,20 @@
 
 	gpio-leds {
 		compatible = "gpio-leds";
+
 		wifi {
-			label = "d-link:red:alert";
-			gpios = <&gpio0 8 1>;
+			label = "dcs-930:red:alert";
+			gpios = <&gpio0 8 GPIO_ACTIVE_LOW>;
 		};
+
 		power {
-			label = "d-link:green:status";
-			gpios = <&gpio0 9 1>;
+			label = "dcs-930:green:status";
+			gpios = <&gpio0 9 GPIO_ACTIVE_LOW>;
 		};
+
 		wps {
-			label = "d-link:blue:wps";
-			gpios = <&gpio0 13 1>;
+			label = "dcs-930:blue:wps";
+			gpios = <&gpio0 13 GPIO_ACTIVE_LOW>;
 		};
 	};
 
@@ -82,47 +78,39 @@
 
 		wps {
 			label = "wps";
-			gpios = <&gpio0 0 1>;
-			linux,code = <0x101>;
+			gpios = <&gpio0 0 GPIO_ACTIVE_LOW>;
+			linux,code = <BTN_1>;
 		};
+
 		reset {
 			label = "reset";
-			gpios = <&gpio0 10 1>;
-			linux,code = <0x198>;
+			gpios = <&gpio0 10 GPIO_ACTIVE_LOW>;
+			linux,code = <KEY_RESTART>;
 		};
 	};
+};
 
-	esw@10110000 {
-		ralink,portmap = <0x2f>;
-
-		port@0 {
-			compatible = "swconfig,port";
-			swconfig,segment = "lan";
-			swconfig,portmap = <0 4>;
-		};
-		port@1 {
-			compatible = "swconfig,port";
-			swconfig,segment = "lan";
-			swconfig,portmap = <1 3>;
-		};
-		port@2 {
-			compatible = "swconfig,port";
-			swconfig,segment = "lan";
-			swconfig,portmap = <2 2>;
-		};
-		port@3 {
-			compatible = "swconfig,port";
-			swconfig,segment = "lan";
-			swconfig,portmap = <3 1>;
-		};
-		port@4 {
-			compatible = "swconfig,port";
-			swconfig,segment = "wan";
-			swconfig,portmap = <4 0>;
+&pinctrl {
+	state_default: pinctrl0 {
+		gpio {
+			ralink,group = "i2c", "spi", "jtag", "mdio", "rgmii", "uartf";
+			ralink,function = "gpio";
 		};
 	};
+};
 
-	otg@101c0000 {
-		status = "okay";
-	};
+&ethernet {
+	mtd-mac-address = <&factory 0x4>;
+};
+
+&esw {
+	mediatek,portmap = <0x2f>;
+};
+
+&wmac {
+	ralink,mtd-eeprom = <&factory 0>;
+};
+
+&otg {
+	status = "okay";
 };

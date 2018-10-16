@@ -28,7 +28,6 @@ menuconfig TARGET_OPTIONS
 	config USE_MIPS16
 		bool "Build packages with MIPS16 instructions" if TARGET_OPTIONS
 		depends on HAS_MIPS16
-		depends on !GCC_VERSION_4_6
 		default y
 		help
 		  If your target CPU does support the MIPS16 instruction set
@@ -43,7 +42,8 @@ menuconfig EXTERNAL_TOOLCHAIN
 	bool
 	prompt "Use external toolchain"  if DEVEL
 	help
-	  If enabled, OpenWrt will compile using an existing toolchain instead of compiling one
+	  If enabled, LEDE will compile using an existing toolchain instead of
+	  compiling one.
 
 	config NATIVE_TOOLCHAIN
 		bool
@@ -51,12 +51,15 @@ menuconfig EXTERNAL_TOOLCHAIN
 		depends on EXTERNAL_TOOLCHAIN
 		select NO_STRIP
 		help
-		  If enabled, OpenWrt will compile using the native toolchain for your host instead of compiling one
+		  If enabled, LEDE will compile using the native toolchain for your
+		  host instead of compiling one.
 
 	config TARGET_NAME
 		string
 		prompt "Target name"  if DEVEL
 		depends on EXTERNAL_TOOLCHAIN && !NATIVE_TOOLCHAIN
+		default "aarch64-unknown-linux-gnu"  if aarch64
+		default "aarch64_be-unknown-linux-gnu"  if aarch64_be
 		default "arm-unknown-linux-gnu"      if arm
 		default "armeb-unknown-linux-gnu"    if armeb
 		default "i486-unknown-linux-gnu"     if i386
@@ -69,6 +72,8 @@ menuconfig EXTERNAL_TOOLCHAIN
 		string
 		prompt "Toolchain prefix"  if DEVEL
 		depends on EXTERNAL_TOOLCHAIN && !NATIVE_TOOLCHAIN
+		default "aarch64-unknown-linux-gnu"  if aarch64
+		default "aarch64_be-unknown-linux-gnu"  if aarch64_be
 		default "arm-unknown-linux-gnu-"      if arm
 		default "armeb-unknown-linux-gnu-"    if armeb
 		default "i486-unknown-linux-gnu-"     if i386
@@ -81,6 +86,8 @@ menuconfig EXTERNAL_TOOLCHAIN
 		string
 		prompt "Toolchain root"  if DEVEL
 		depends on EXTERNAL_TOOLCHAIN && !NATIVE_TOOLCHAIN
+		default "/opt/cross/aarch64-unknown-linux-gnu"  if aarch64
+		default "/opt/cross/aarch64_be-unknown-linux-gnu"  if aarch64_be
 		default "/opt/cross/arm-unknown-linux-gnu"      if arm
 		default "/opt/cross/armeb-unknown-linux-gnu"    if armeb
 		default "/opt/cross/i486-unknown-linux-gnu"     if i386
@@ -89,16 +96,37 @@ menuconfig EXTERNAL_TOOLCHAIN
 		default "/opt/cross/powerpc-unknown-linux-gnu"  if powerpc
 		default "/opt/cross/x86_64-unknown-linux-gnu"   if x86_64
 
-	config TOOLCHAIN_LIBC
-		string
+	choice TOOLCHAIN_LIBC_TYPE
 		prompt "Toolchain libc"  if DEVEL
 		depends on EXTERNAL_TOOLCHAIN && !NATIVE_TOOLCHAIN
-		default "uclibc"
+		default EXTERNAL_TOOLCHAIN_LIBC_USE_MUSL
 		help
-		  Specify the libc type used by the external toolchain. The given value us passed as -m
-		  flag to all gcc and g++ invocations. This is mainly intended for multilib toolchains
-		  which support glibc and uclibc at the same time. If no value is specified, no -m flag
-		  is passed.
+		  Specify the libc type used by the external toolchain. The given value
+		  is passed as -m flag to all gcc and g++ invocations. This is mainly
+		  intended for multilib toolchains which support glibc and uclibc at
+		  the same time. If no value is specified, no -m flag is passed.
+
+		config EXTERNAL_TOOLCHAIN_LIBC_USE_GLIBC
+			bool "glibc"
+			select USE_GLIBC
+
+		config EXTERNAL_TOOLCHAIN_LIBC_USE_UCLIBC
+			bool "uClibc"
+			select USE_UCLIBC
+			depends on !(aarch64 || aarch64_be)
+
+		config EXTERNAL_TOOLCHAIN_LIBC_USE_MUSL
+			bool "musl"
+			select USE_MUSL
+
+	endchoice
+
+	config TOOLCHAIN_LIBC
+		string
+		depends on EXTERNAL_TOOLCHAIN && !NATIVE_TOOLCHAIN
+		default "glibc" if EXTERNAL_TOOLCHAIN_LIBC_USE_GLIBC
+		default "uclibc" if EXTERNAL_TOOLCHAIN_LIBC_USE_UCLIBC
+		default "musl" if EXTERNAL_TOOLCHAIN_LIBC_USE_MUSL
 
 	config TOOLCHAIN_BIN_PATH
 		string
@@ -106,8 +134,8 @@ menuconfig EXTERNAL_TOOLCHAIN
 		depends on EXTERNAL_TOOLCHAIN && !NATIVE_TOOLCHAIN
 		default "./usr/bin ./bin"
 		help
-		  Specify additional directories searched for toolchain binaries (override PATH)
-		  Use ./DIR for directories relative to the root above
+		  Specify additional directories searched for toolchain binaries
+		  (override PATH). Use ./DIR for directories relative to the root above.
 
 	config TOOLCHAIN_INC_PATH
 		string
@@ -115,8 +143,8 @@ menuconfig EXTERNAL_TOOLCHAIN
 		depends on EXTERNAL_TOOLCHAIN && !NATIVE_TOOLCHAIN
 		default "./usr/include ./include"
 		help
-		  Specify additional directories searched for header files (override CPPFLAGS)
-		  Use ./DIR for directories relative to the root above
+		  Specify additional directories searched for header files (override
+		  CPPFLAGS). Use ./DIR for directories relative to the root above.
 
 	config TOOLCHAIN_LIB_PATH
 		string
@@ -124,8 +152,8 @@ menuconfig EXTERNAL_TOOLCHAIN
 		depends on EXTERNAL_TOOLCHAIN && !NATIVE_TOOLCHAIN
 		default "./usr/lib ./lib"
 		help
-		  Specify additional directories searched for libraries (override LDFLAGS)
-		  Use ./DIR for directories relative to the root above
+		  Specify additional directories searched for libraries (override LDFLAGS).
+		  Use ./DIR for directories relative to the root above.
 
 config NEED_TOOLCHAIN
 	bool
@@ -140,7 +168,6 @@ menuconfig EXTRA_TARGET_ARCH
 	bool
 	prompt "Enable an extra toolchain target architecture" if TOOLCHAINOPTS
 	depends on !sparc
-	default y	if powerpc64
 	default n
 	help
 	  Some builds may require a 'biarch' toolchain. This option
@@ -150,7 +177,6 @@ menuconfig EXTRA_TARGET_ARCH
 
 	config EXTRA_TARGET_ARCH_NAME
 		string
-		default "powerpc64"	if powerpc64
 		prompt "Extra architecture name" if EXTRA_TARGET_ARCH
 		help
 		  Specify the cpu name (eg powerpc64 or x86_64) of the
@@ -158,7 +184,6 @@ menuconfig EXTRA_TARGET_ARCH
 
 	config EXTRA_TARGET_ARCH_OPTS
 		string
-		default "-m64"		if powerpc64
 		prompt "Extra architecture compiler options" if EXTRA_TARGET_ARCH
 		help
 		  If you're specifying an addition target architecture,
@@ -181,6 +206,7 @@ menuconfig EXTRA_TARGET_ARCH
 			bool "n64"
 
 		config MIPS64_ABI_N32
+			depends on !LIBC_USE_MUSL
 			bool "n32"
 
 		config MIPS64_ABI_O32
@@ -198,91 +224,88 @@ comment "Compiler"
 
 source "toolchain/gcc/Config.in"
 
+config YASM
+	bool
+	depends on ( i386 || x86_64 )
+	prompt "Build yasm" if TOOLCHAINOPTS
+	default y
+	help
+	  Enable if you want to build yasm
+
 comment "C Library"
 	depends on TOOLCHAINOPTS
 
 choice
 	prompt "C Library implementation" if TOOLCHAINOPTS
-	default LIBC_USE_UCLIBC
+	default LIBC_USE_UCLIBC if arc
+	default LIBC_USE_GLIBC if powerpc64
+	default LIBC_USE_MUSL
 	help
 	  Select the C library implementation.
 
-	config LIBC_USE_EGLIBC
-		bool "Use eglibc"
-		select USE_EGLIBC
-		depends on !avr32
+	config LIBC_USE_GLIBC
+		bool "Use glibc"
+		select USE_GLIBC
+		depends on !arc
 
 	config LIBC_USE_UCLIBC
 		select USE_UCLIBC
 		bool "Use uClibc"
+		depends on !(aarch64 || aarch64_be || powerpc64)
+		depends on BROKEN || !(arm || armeb || i386 || x86_64 || mips || mipsel || mips64 || mips64el || powerpc)
 
 	config LIBC_USE_MUSL
-		bool "Use musl"
 		select USE_MUSL
-		depends on BROKEN
-		depends on !(mips64 || mips64el)
+		bool "Use musl"
+		depends on !(arc || powerpc64)
 
 endchoice
 
-source "toolchain/eglibc/Config.in"
 source "toolchain/uClibc/Config.in"
-source "toolchain/musl/Config.in"
 
 comment "Debuggers"
 	depends on TOOLCHAINOPTS
 
 config GDB
 	bool
-	depends on !avr32
 	prompt "Build gdb" if TOOLCHAINOPTS
 	default y if !EXTERNAL_TOOLCHAIN
 	help
-		Enable if you want to build the gdb
+	  Enable if you want to build the gdb.
 
-config INSIGHT
-	bool
-	prompt "Build insight-gdb" if TOOLCHAINOPTS
-	select GDB
-	default n
-	help
-		Enable if you want to build insight-gdb
-
-config USE_EGLIBC
+config USE_GLIBC
+	default y if !TOOLCHAINOPTS && !EXTERNAL_TOOLCHAIN && !NATIVE_TOOLCHAIN && (powerpc64)
 	bool
 
 config USE_UCLIBC
+	default y if !TOOLCHAINOPTS && !EXTERNAL_TOOLCHAIN && !NATIVE_TOOLCHAIN && (arc)
 	bool
-	default y if !TOOLCHAINOPTS && !EXTERNAL_TOOLCHAIN && !NATIVE_TOOLCHAIN
 
 config USE_MUSL
+	default y if !TOOLCHAINOPTS && !EXTERNAL_TOOLCHAIN && !NATIVE_TOOLCHAIN && !(arc || powerpc64)
+	bool
+
+config SSP_SUPPORT
+	default y if USE_MUSL || GCC_LIBSSP
 	bool
 
 config USE_EXTERNAL_LIBC
 	bool
 	default y if EXTERNAL_TOOLCHAIN || NATIVE_TOOLCHAIN
 
+source "toolchain/binutils/Config.version"
 source "toolchain/gcc/Config.version"
-
-source "toolchain/eglibc/Config.version"
-source "toolchain/uClibc/Config.version"
-source "toolchain/musl/Config.version"
 
 config LIBC
 	string
-	default "eglibc"  if USE_EGLIBC
+	default "glibc"   if USE_GLIBC
 	default "uClibc"  if USE_UCLIBC
 	default "musl"	  if USE_MUSL
 
-config LIBC_VERSION
-	string
-	default EGLIBC_VERSION  if USE_EGLIBC
-	default UCLIBC_VERSION  if USE_UCLIBC
-	default MUSL_VERSION	if USE_MUSL
-
 config TARGET_SUFFIX
 	string
-	default "gnueabi"         if USE_EGLIBC && (arm || armeb)
-	default "gnu"             if USE_EGLIBC && !(arm || armeb)
+	default "gnueabi"         if USE_GLIBC && (arm || armeb)
+	default "gnu"             if USE_GLIBC && !(arm || armeb)
 	default "uclibcgnueabi"   if USE_UCLIBC && (arm || armeb)
 	default "uclibc"          if USE_UCLIBC && !(arm || armeb)
 	default "muslgnueabi"     if USE_MUSL && (arm || armeb)

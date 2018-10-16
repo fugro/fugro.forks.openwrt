@@ -1,5 +1,6 @@
 #
-# Copyright (C) 2013 OpenWrt.org
+# Copyright (C) 2013-2016 OpenWrt.org
+# Copyright (C) 2016 Yousong Zhou
 #
 # This is free software, licensed under the GNU General Public License v2.
 # See /LICENSE for more information.
@@ -7,40 +8,39 @@
 include $(TOPDIR)/rules.mk
 include $(INCLUDE_DIR)/image.mk
 
-BOARDS:= \
-	sun4i-a10-cubieboard \
-	sun4i-a10-olinuxino-lime \
-	sun4i-a10-pcduino \
-	sun5i-a13-olinuxino \
-	sun6i-a31-colombus \
-	sun7i-a20-cubieboard2 \
-	sun7i-a20-cubietruck \
-	sun7i-a20-olinuxino-micro
+FAT32_BLOCK_SIZE=1024
+FAT32_BLOCKS=$(shell echo $$(($(CONFIG_SUNXI_SD_BOOT_PARTSIZE)*1024*1024/$(FAT32_BLOCK_SIZE))))
 
-define Image/BuildKernel
-	mkimage -A arm -O linux -T kernel -C none \
-		-a 0x40008000 -e 0x40008000 \
-		-n 'ARM OpenWrt Linux-$(LINUX_VERSION)' \
-		-d $(KDIR)/zImage $(BIN_DIR)/$(IMG_PREFIX)-uImage
-	
-    ifneq ($(CONFIG_TARGET_ROOTFS_INITRAMFS),)
-	$(CP) $(KDIR)/zImage-initramfs $(BIN_DIR)/$(IMG_PREFIX)-zImage-initramfs
-	echo -ne '\x00\x00\x00\x00' >> $(BIN_DIR)/$(IMG_PREFIX)-zImage-initramfs
-	$(call Image/BuildKernel/MkuImage, \
-		none, 0x40008000, 0x40008000, \
-		$(BIN_DIR)/$(IMG_PREFIX)-zImage-initramfs, \
-		$(BIN_DIR)/$(IMG_PREFIX)-uImage-initramfs \
-	)
-    endif
+KERNEL_LOADADDR:=0x40008000
 
-	$(foreach board,$(BOARDS),
-		$(CP) $(LINUX_DIR)/arch/arm/boot/dts/$(board).dtb $(BIN_DIR)/
-	)
+define Build/sunxi-sdcard
+	rm -f $@.boot
+	mkfs.fat $@.boot -C $(FAT32_BLOCKS)
+
+	mcopy -i $@.boot $(STAGING_DIR_IMAGE)/$(DEVICE_NAME)-boot.scr ::boot.scr
+	mcopy -i $@.boot $(DTS_DIR)/$(SUNXI_DTS).dtb ::dtb
+	mcopy -i $@.boot $(IMAGE_KERNEL) ::uImage
+	./gen_sunxi_sdcard_img.sh $@ \
+		$@.boot \
+		$(IMAGE_ROOTFS) \
+		$(CONFIG_SUNXI_SD_BOOT_PARTSIZE) \
+		$(CONFIG_TARGET_ROOTFS_PARTSIZE) \
+		$(STAGING_DIR_IMAGE)/$(DEVICE_NAME)-u-boot-with-spl.bin
+	rm -f $@.boot
 endef
 
-define Image/Build
-	$(call Image/Build/$(1),$(1))
-	dd if=$(KDIR)/root.$(1) of=$(BIN_DIR)/openwrt-$(BOARD)-root.$(1) bs=128k conv=sync
+# why \x00\x00\x00\x00 for zImage-initramfs
+define Device/Default
+  PROFILES := Default
+  DEVICE_VARS := SUNXI_DTS SUNXI_UBOOT
+  KERNEL_NAME := zImage
+  KERNEL := kernel-bin | uImage none
+  IMAGES := sdcard.img.gz
+  IMAGE/sdcard.img.gz := sunxi-sdcard | append-metadata | gzip
 endef
+
+include cortex-a7.mk
+include cortex-a8.mk
+include cortex-a53.mk
 
 $(eval $(call BuildImage))

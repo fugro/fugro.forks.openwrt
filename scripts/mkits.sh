@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Licensed under the terms of the GNU GPL License version 2 or later.
 #
@@ -19,6 +19,7 @@ usage() {
 		"-v version -k kernel [-D name -d dtb] -o its_file"
 	echo -e "\t-A ==> set architecture to 'arch'"
 	echo -e "\t-C ==> set compression type 'comp'"
+	echo -e "\t-c ==> set config name 'config'"
 	echo -e "\t-a ==> set load address to 'addr' (hex)"
 	echo -e "\t-e ==> set entry point to 'entry' (hex)"
 	echo -e "\t-v ==> set kernel version to 'version'"
@@ -29,11 +30,12 @@ usage() {
 	exit 1
 }
 
-while getopts ":A:a:C:D:d:e:k:o:v:" OPTION
+while getopts ":A:a:c:C:D:d:e:k:o:v:" OPTION
 do
 	case $OPTION in
 		A ) ARCH=$OPTARG;;
 		a ) LOAD_ADDR=$OPTARG;;
+		c ) CONFIG=$OPTARG;;
 		C ) COMPRESS=$OPTARG;;
 		D ) DEVICE=$OPTARG;;
 		d ) DTB=$OPTARG;;
@@ -49,11 +51,30 @@ done
 # Make sure user entered all required parameters
 if [ -z "${ARCH}" ] || [ -z "${COMPRESS}" ] || [ -z "${LOAD_ADDR}" ] || \
 	[ -z "${ENTRY_ADDR}" ] || [ -z "${VERSION}" ] || [ -z "${KERNEL}" ] || \
-	[ -z "${OUTPUT}" ]; then
+	[ -z "${OUTPUT}" ] || [ -z "${CONFIG}" ]; then
 	usage
 fi
 
 ARCH_UPPER=`echo $ARCH | tr '[:lower:]' '[:upper:]'`
+
+# Conditionally create fdt information
+if [ -n "${DTB}" ]; then
+	FDT="
+		fdt@1 {
+			description = \"${ARCH_UPPER} OpenWrt ${DEVICE} device tree blob\";
+			data = /incbin/(\"${DTB}\");
+			type = \"flat_dt\";
+			arch = \"${ARCH}\";
+			compression = \"none\";
+			hash@1 {
+				algo = \"crc32\";
+			};
+			hash@2 {
+				algo = \"sha1\";
+			};
+		};
+"
+fi
 
 # Create a default, fully populated DTS file
 DATA="/dts-v1/;
@@ -80,36 +101,19 @@ DATA="/dts-v1/;
 			};
 		};
 
-		fdt@1 {
-			description = \"${ARCH_UPPER} OpenWrt ${DEVICE} device tree blob\";
-			data = /incbin/(\"${DTB}\");
-			type = \"flat_dt\";
-			arch = \"${ARCH}\";
-			compression = \"none\";
-			hash@1 {
-				algo = \"crc32\";
-			};
-			hash@2 {
-				algo = \"sha1\";
-			};
-		};
+${FDT}
+
 	};
 
 	configurations {
-		default = \"config@1\";
-		config@1 {
+		default = \"${CONFIG}\";
+		${CONFIG} {
 			description = \"OpenWrt\";
 			kernel = \"kernel@1\";
 			fdt = \"fdt@1\";
 		};
 	};
 };"
-
-# Conditionally strip fdt information out of tree
-if [ -z "${DTB}" ]; then
-	DATA=`echo "$DATA" | sed '/start fdt/,/end fdt/d'`
-	DATA=`echo "$DATA" | sed '/fdt/d'`
-fi
 
 # Write .its file to disk
 echo "$DATA" > ${OUTPUT}

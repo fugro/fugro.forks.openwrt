@@ -1,20 +1,61 @@
-# Copyright (C) 2006-2013 OpenWrt.org
+# Copyright (C) 2006-2014 OpenWrt.org
 #
 # This is free software, licensed under the GNU General Public License v2.
 # See /LICENSE for more information.
 #
 
+config KERNEL_BUILD_USER
+	string "Custom Kernel Build User Name"
+	default ""
+	help
+	  Sets the Kernel build user string, which for example will be returned
+	  by 'uname -a' on running systems.
+	  If not set, uses system user at build time.
+
+config KERNEL_BUILD_DOMAIN
+	string "Custom Kernel Build Domain Name"
+	default ""
+	help
+	  Sets the Kernel build domain string, which for example will be
+	  returned by 'uname -a' on running systems.
+	  If not set, uses system hostname at build time.
+
+config KERNEL_PRINTK
+	bool "Enable support for printk"
+	default y
+
+config KERNEL_CRASHLOG
+	bool "Crash logging"
+	depends on !(arm || powerpc || sparc || TARGET_uml || i386 || x86_64)
+	default y
+
+config KERNEL_SWAP
+	bool "Support for paging of anonymous memory (swap)"
+	default y
+
 config KERNEL_DEBUG_FS
-	bool "Compile the kernel with Debug FileSystem enabled"
+	bool "Compile the kernel with debug filesystem enabled"
 	default y
 	help
 	  debugfs is a virtual file system that kernel developers use to put
 	  debugging files into. Enable this option to be able to read and
-	  write to these files.
+	  write to these files. Many common debugging facilities, such as
+	  ftrace, require the existence of debugfs.
 
-config KERNEL_PERF_EVENTS
+config KERNEL_MIPS_FPU_EMULATOR
+	bool "Compile the kernel with MIPS FPU Emulator"
+	default y if TARGET_pistachio
+	depends on (mips || mipsel || mips64 || mips64el)
+
+config KERNEL_ARM_PMU
 	bool
 	default n
+	depends on (arm || aarch64)
+
+config KERNEL_PERF_EVENTS
+	bool "Compile the kernel with performance events and counters"
+	default n
+	select KERNEL_ARM_PMU if (arm || aarch64)
 
 config KERNEL_PROFILING
 	bool "Compile the kernel with profiling enabled"
@@ -26,12 +67,13 @@ config KERNEL_PROFILING
 
 config KERNEL_KALLSYMS
 	bool "Compile the kernel with symbol table information"
-	default y
+	default y if !SMALL_FLASH
 	help
-	  This will give you more information in stack traces from kernel oopses
+	  This will give you more information in stack traces from kernel oopses.
 
 config KERNEL_FTRACE
 	bool "Compile the kernel with tracing support"
+	depends on !TARGET_uml
 	default n
 
 config KERNEL_FTRACE_SYSCALLS
@@ -42,6 +84,26 @@ config KERNEL_FTRACE_SYSCALLS
 config KERNEL_ENABLE_DEFAULT_TRACERS
 	bool "Trace process context switches and events"
 	depends on KERNEL_FTRACE
+	default n
+
+config KERNEL_FUNCTION_TRACER
+	bool "Function tracer"
+	depends on KERNEL_FTRACE
+	default n
+
+config KERNEL_FUNCTION_GRAPH_TRACER
+	bool "Function graph tracer"
+	depends on KERNEL_FUNCTION_TRACER
+	default n
+
+config KERNEL_DYNAMIC_FTRACE
+	bool "Enable/disable function tracing dynamically"
+	depends on KERNEL_FUNCTION_TRACER
+	default n
+
+config KERNEL_FUNCTION_PROFILER
+	bool "Function profiler"
+	depends on KERNEL_FUNCTION_TRACER
 	default n
 
 config KERNEL_DEBUG_KERNEL
@@ -66,9 +128,9 @@ config KERNEL_DEBUG_LL
 	depends on arm
 	select KERNEL_DEBUG_LL_UART_NONE
 	help
-	  ARM low level debugging
+	  ARM low level debugging.
 
-config KERNEL_DYNAMIC_DEBUG 
+config KERNEL_DYNAMIC_DEBUG
 	bool "Compile the kernel with dynamic printk"
 	select KERNEL_DEBUG_FS
 	default n
@@ -82,27 +144,60 @@ config KERNEL_DYNAMIC_DEBUG
 
 config KERNEL_EARLY_PRINTK
 	bool "Compile the kernel with early printk"
+	default y if TARGET_bcm53xx
 	default n
 	depends on arm
 	select KERNEL_DEBUG_KERNEL
 	select KERNEL_DEBUG_LL if arm
 	help
-	  Compile the kernel with early printk support.
-	  This is only useful for debugging purposes to send messages
-	  over the serial console in early boot.
+	  Compile the kernel with early printk support.  This is only useful for
+	  debugging purposes to send messages over the serial console in early boot.
 	  Enable this to debug early boot problems.
+
+config KERNEL_KPROBES
+	bool "Compile the kernel with kprobes support"
+	default n
+	select KERNEL_FTRACE
+	select KERNEL_PERF_EVENTS
+	help
+	  Compiles the kernel with KPROBES support, which allows you to trap
+	  at almost any kernel address and execute a callback function.
+	  register_kprobe() establishes a probepoint and specifies the
+	  callback. Kprobes is useful for kernel debugging, non-intrusive
+	  instrumentation and testing.
+	  If in doubt, say "N".
+
+config KERNEL_KPROBE_EVENT
+	bool
+	default y if KERNEL_KPROBES
 
 config KERNEL_AIO
 	bool "Compile the kernel with asynchronous IO support"
 	default n
 
-config KERNEL_DIRECT_IO
-	bool "Compile the kernel with direct IO support"
+config KERNEL_FHANDLE
+	bool "Compile the kernel with support for fhandle syscalls"
+	default n
+
+config KERNEL_FANOTIFY
+	bool "Compile the kernel with modern file notification support"
+	default n
+
+config KERNEL_BLK_DEV_BSG
+	bool "Compile the kernel with SCSI generic v4 support for any block device"
 	default n
 
 config KERNEL_MAGIC_SYSRQ
 	bool "Compile the kernel with SysRq support"
 	default y
+
+config KERNEL_DEBUG_PINCTRL
+	bool "Compile the kernel with pinctrl debugging"
+	select KERNEL_DEBUG_KERNEL
+
+config KERNEL_DEBUG_GPIO
+	bool "Compile the kernel with gpio debugging"
+	select KERNEL_DEBUG_KERNEL
 
 config KERNEL_COREDUMP
 	bool
@@ -121,15 +216,78 @@ config KERNEL_PRINTK_TIME
 	bool "Enable printk timestamps"
 	default y
 
+config KERNEL_SLUB_DEBUG
+	bool
+
+config KERNEL_SLUB_DEBUG_ON
+	bool
+
+config KERNEL_SLABINFO
+	select KERNEL_SLUB_DEBUG
+	select KERNEL_SLUB_DEBUG_ON
+	bool "Enable /proc slab debug info"
+
+config KERNEL_PROC_PAGE_MONITOR
+	bool "Enable /proc page monitoring"
+
 config KERNEL_RELAY
 	bool
 
 config KERNEL_KEXEC
 	bool "Enable kexec support"
 
+config KERNEL_PROC_VMCORE
+	bool
+
+config KERNEL_CRASH_DUMP
+	depends on i386 || x86_64 || arm || armeb
+	select KERNEL_KEXEC
+	select KERNEL_PROC_VMCORE
+	bool "Enable support for kexec crashdump"
+	default y
+
 config USE_RFKILL
 	bool "Enable rfkill support"
 	default RFKILL_SUPPORT
+
+config USE_SPARSE
+	bool "Enable sparse check during kernel build"
+	default n
+
+config KERNEL_DEVTMPFS
+	bool "Compile the kernel with device tmpfs enabled"
+	default n
+	help
+	  devtmpfs is a simple, kernel-managed /dev filesystem. The kernel creates
+	  devices nodes for all registered devices to simplify boot, but leaves more
+	  complex tasks to userspace (e.g. udev).
+
+if KERNEL_DEVTMPFS
+
+	config KERNEL_DEVTMPFS_MOUNT
+		bool "Automatically mount devtmpfs after root filesystem is mounted"
+		default n
+
+endif
+
+config KERNEL_KEYS
+    bool "Enable kernel access key retention support"
+    default n
+
+config KERNEL_PERSISTENT_KEYRINGS
+    bool "Enable kernel persistent keyrings"
+    depends on KERNEL_KEYS
+    default n
+
+config KERNEL_BIG_KEYS
+    bool "Enable large payload keys on kernel keyrings"
+    depends on KERNEL_KEYS
+    default n
+
+config KERNEL_ENCRYPTED_KEYS
+    tristate "Enable keys with encrypted payloads on kernel keyrings"
+    depends on KERNEL_KEYS
+    default n
 
 #
 # CGROUP support symbols
@@ -155,7 +313,7 @@ if KERNEL_CGROUPS
 
 	config KERNEL_CGROUP_FREEZER
 		bool "Freezer cgroup subsystem"
-		default n
+		default y
 		help
 		  Provides a way to freeze and unfreeze all tasks in a
 		  cgroup.
@@ -166,6 +324,13 @@ if KERNEL_CGROUPS
 		help
 		  Provides a cgroup implementing whitelists for devices which
 		  a process in the cgroup can mknod or open.
+
+	config KERNEL_CGROUP_PIDS
+		bool "PIDs cgroup subsystem"
+		default y
+		help
+		  Provides enforcement of process number limits in the scope of a
+		  cgroup.
 
 	config KERNEL_CPUSETS
 		bool "Cpuset support"
@@ -202,7 +367,7 @@ if KERNEL_CGROUPS
 	config KERNEL_MEMCG
 		bool "Memory Resource Controller for Control Groups"
 		default n
-		depends on KERNEL_RESOURCE_COUNTERS
+		depends on KERNEL_RESOURCE_COUNTERS || !LINUX_3_18
 		help
 		  Provides a memory resource controller that manages both anonymous
 		  memory and page cache. (See Documentation/cgroups/memory.txt)
@@ -213,11 +378,11 @@ if KERNEL_CGROUPS
 		  usage tracking struct at boot. Total amount of this is printed out
 		  at boot.
 
-		  Only enable when you're ok with these trade offs and really
+		  Only enable when you're ok with these tradeoffs and really
 		  sure you need the memory resource controller. Even when you enable
 		  this, you can set "cgroup_disable=memory" at your boot option to
-		  disable memory resource controller and you can avoid overheads.
-		  (and lose benefits of memory resource controller)
+		  disable memory resource controller and you can avoid overheads
+		  (but lose benefits of memory resource controller).
 
 		  This config option also selects MM_OWNER config option, which
 		  could in turn add some fork/exit overhead.
@@ -251,8 +416,9 @@ if KERNEL_CGROUPS
 		  which want to enable the feature but keep it disabled by default
 		  and let the user enable it by swapaccount boot command line
 		  parameter should have this option unselected.
-		  For those who want to have the feature enabled by default should
-		  select this option (if, for some reason, they need to disable it
+
+		  Those who want to have the feature enabled by default should
+		  select this option (if, for some reason, they need to disable it,
 		  then swapaccount=0 does the trick).
 
 
@@ -268,12 +434,9 @@ if KERNEL_CGROUPS
 		  the kmem extension can use it to guarantee that no group of processes
 		  will ever exhaust kernel resources alone.
 
-	config KERNEL_PERF_EVENTS
-		bool
-		default y if KERNEL_CGROUP_PERF
-
 	config KERNEL_CGROUP_PERF
 		bool "Enable perf_event per-cpu per-container group (cgroup) monitoring"
+		select KERNEL_PERF_EVENTS
 		default n
 		help
 		  This option extends the per-cpu mode to restrict monitoring to
@@ -367,14 +530,14 @@ if KERNEL_NAMESPACES
 		bool "UTS namespace"
 		default y
 		help
-		  In this namespace tasks see different info provided
-		  with the uname() system call
+		  In this namespace, tasks see different info provided
+		  with the uname() system call.
 
 	config KERNEL_IPC_NS
 		bool "IPC namespace"
 		default y
 		help
-		  In this namespace tasks work with IPC ids which correspond to
+		  In this namespace, tasks work with IPC ids which correspond to
 		  different IPC objects in different namespaces.
 
 	config KERNEL_USER_NS
@@ -436,3 +599,189 @@ if KERNEL_LXC_MISC
 		  operations on message queues.
 
 endif
+
+config KERNEL_SECCOMP_FILTER
+	bool
+	default n
+
+config KERNEL_SECCOMP
+	bool "Enable seccomp support"
+		depends on !(TARGET_uml)
+		select KERNEL_SECCOMP_FILTER
+		default n
+		help
+		  Build kernel with support for seccomp.
+
+#
+# IPv4 configuration
+#
+
+config KERNEL_IP_MROUTE
+	bool "Enable IPv4 multicast routing"
+	default y
+	help
+	  Multicast routing requires a multicast routing daemon in
+	  addition to kernel support.
+
+#
+# IPv6 configuration
+#
+
+config KERNEL_IPV6
+	def_bool IPV6
+
+if KERNEL_IPV6
+
+	config KERNEL_IPV6_MULTIPLE_TABLES
+		def_bool y
+
+	config KERNEL_IPV6_SUBTREES
+		def_bool y
+
+	config KERNEL_IPV6_MROUTE
+		bool "Enable IPv6 multicast routing"
+		default y
+		help
+		  Multicast routing requires a multicast routing daemon in
+		  addition to kernel support.
+
+	config KERNEL_IPV6_PIMSM_V2
+		def_bool n
+
+endif
+
+#
+# NFS related symbols
+#
+config KERNEL_IP_PNP
+	bool "Compile the kernel with rootfs on NFS"
+	help
+	   If you want to make your kernel boot off a NFS server as root
+	   filesystem, select Y here.
+
+if KERNEL_IP_PNP
+
+	config KERNEL_IP_PNP_DHCP
+		def_bool y
+
+	config KERNEL_IP_PNP_BOOTP
+		def_bool n
+
+	config KERNEL_IP_PNP_RARP
+		def_bool n
+
+	config KERNEL_NFS_FS
+		def_bool y
+
+	config KERNEL_NFS_V2
+		def_bool y
+
+	config KERNEL_NFS_V3
+		def_bool y
+
+	config KERNEL_ROOT_NFS
+		def_bool y
+
+endif
+
+menu "Filesystem ACL and attr support options"
+	config USE_FS_ACL_ATTR
+		bool "Use filesystem ACL and attr support by default"
+		default n
+		help
+		  Make using ACLs (e.g. POSIX ACL, NFSv4 ACL) the default
+		  for kernel and packages, except tmpfs, flash filesystems,
+		  and old NFS.  Also enable userspace extended attribute support
+		  by default.  (OpenWrt already has an expection it will be
+		  present in the kernel).
+
+	config KERNEL_FS_POSIX_ACL
+		bool "Enable POSIX ACL support"
+		default y if USE_FS_ACL_ATTR
+
+	config KERNEL_BTRFS_FS_POSIX_ACL
+		bool "Enable POSIX ACL for BtrFS Filesystems"
+		select KERNEL_FS_POSIX_ACL
+		default y if USE_FS_ACL_ATTR
+
+	config KERNEL_EXT4_FS_POSIX_ACL
+		bool "Enable POSIX ACL for Ext4 Filesystems"
+		select KERNEL_FS_POSIX_ACL
+		default y if USE_FS_ACL_ATTR
+
+	config KERNEL_F2FS_FS_POSIX_ACL
+		bool "Enable POSIX ACL for F2FS Filesystems"
+		select KERNEL_FS_POSIX_ACL
+		default n
+
+	config KERNEL_JFFS2_FS_POSIX_ACL
+		bool "Enable POSIX ACL for JFFS2 Filesystems"
+		select KERNEL_FS_POSIX_ACL
+		default n
+
+	config KERNEL_TMPFS_POSIX_ACL
+		bool "Enable POSIX ACL for TMPFS Filesystems"
+		select KERNEL_FS_POSIX_ACL
+		default n
+
+	config KERNEL_CIFS_ACL
+		bool "Enable CIFS ACLs"
+		select KERNEL_FS_POSIX_ACL
+		default y if USE_FS_ACL_ATTR
+
+	config KERNEL_HFS_FS_POSIX_ACL
+		bool "Enable POSIX ACL for HFS Filesystems"
+		select KERNEL_FS_POSIX_ACL
+		default y if USE_FS_ACL_ATTR
+
+	config KERNEL_HFSPLUG_FS_POSIX_ACL
+		bool "Enable POSIX ACL for HFS+ Filesystems"
+		select KERNEL_FS_POSIX_ACL
+		default y if USE_FS_ACL_ATTR
+
+	config KERNEL_NFS_ACL_SUPPORT
+		bool "Enable ACLs for NFS"
+		default y if USE_FS_ACL_ATTR
+
+	config KERNEL_NFS_V3_ACL_SUPPORT
+		bool "Enable ACLs for NFSv3"
+		default n
+
+	config KERNEL_NFSD_V2_ACL_SUPPORT
+		bool "Enable ACLs for NFSDv2"
+		default n
+
+	config KERNEL_NFSD_V3_ACL_SUPPORT
+		bool "Enable ACLs for NFSDv3"
+		default n
+
+	config KERNEL_REISER_FS_POSIX_ACL
+		bool "Enable POSIX ACLs for ReiserFS"
+		select KERNEL_FS_POSIX_ACL
+		default y if USE_FS_ACL_ATTR
+
+	config KERNEL_XFS_POSIX_ACL
+		bool "Enable POSIX ACLs for XFS"
+		select KERNEL_FS_POSIX_ACL
+		default y if USE_FS_ACL_ATTR
+
+	config KERNEL_JFS_POSIX_ACL
+		bool "Enable POSIX ACLs for JFS"
+		select KERNEL_FS_POSIX_ACL
+		default y if USE_FS_ACL_ATTR
+
+endmenu
+
+config KERNEL_DEVMEM
+	bool "/dev/mem virtual device support"
+	help
+	  Say Y here if you want to support the /dev/mem device.
+	  The /dev/mem device is used to access areas of physical
+	  memory.
+
+config KERNEL_DEVKMEM
+	bool "/dev/kmem virtual device support"
+	help
+	  Say Y here if you want to support the /dev/kmem device. The
+	  /dev/kmem device is rarely used, but can be used for certain
+	  kind of kernel debugging operations.

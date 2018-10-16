@@ -1,4 +1,4 @@
-# 
+#
 # Copyright (C) 2009 OpenWrt.org
 #
 # This is free software, licensed under the GNU General Public License v2.
@@ -6,9 +6,9 @@
 #
 
 override CONFIG_AUTOREBUILD=
+override CONFIG_AUTOREMOVE=
 
-REAL_STAGING_DIR_HOST:=$(STAGING_DIR_HOST)
-STAGING_DIR_HOST:=$(TOOLCHAIN_DIR)
+HOST_BUILD_PREFIX:=$(TOOLCHAIN_DIR)
 BUILD_DIR_HOST:=$(BUILD_DIR_TOOLCHAIN)
 
 include $(INCLUDE_DIR)/host-build.mk

@@ -107,9 +107,35 @@ typedef enum {
 #define MEI_INIT_WAKELIST(name,queue) \
         init_waitqueue_head(&queue)
 
+static inline long
+ugly_hack_sleep_on_timeout(wait_queue_head_t *q, long timeout)
+{
+	unsigned long flags;
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,13,0))
+	wait_queue_entry_t wait;
+#else
+	wait_queue_t wait;
+#endif
+
+	init_waitqueue_entry(&wait, current);
+
+	__set_current_state(TASK_INTERRUPTIBLE);
+	spin_lock_irqsave(&q->lock, flags);
+	__add_wait_queue(q, &wait);
+	spin_unlock(&q->lock);
+
+	timeout = schedule_timeout(timeout);
+
+	spin_lock_irq(&q->lock);
+	__remove_wait_queue(q, &wait);
+	spin_unlock_irqrestore(&q->lock, flags);
+
+	return timeout;
+}
+
 /* wait for an event, timeout is measured in ms */
 #define MEI_WAIT_EVENT_TIMEOUT(ev,timeout)\
-        interruptible_sleep_on_timeout(&ev,timeout * HZ / 1000)
+        ugly_hack_sleep_on_timeout(&ev, timeout * HZ / 1000)
 #define MEI_WAKEUP_EVENT(ev)\
         wake_up_interruptible(&ev)
 #endif /* IFX_MEI_BSP */

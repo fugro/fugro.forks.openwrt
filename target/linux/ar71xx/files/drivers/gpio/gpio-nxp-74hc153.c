@@ -8,6 +8,7 @@
  *  published by the Free Software Foundation.
  */
 
+#include <linux/version.h>
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/gpio.h>
@@ -167,7 +168,11 @@ static int nxp_74hc153_probe(struct platform_device *pdev)
 	gc->base = pdata->gpio_base;
 	gc->ngpio = NXP_74HC153_NUM_GPIOS;
 	gc->label = dev_name(nxp->parent);
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,5,0)
 	gc->dev = nxp->parent;
+#else
+	gc->parent = nxp->parent;
+#endif
 	gc->owner = THIS_MODULE;
 
 	err = gpiochip_add(&nxp->gpio_chip);
@@ -198,16 +203,7 @@ static int nxp_74hc153_remove(struct platform_device *pdev)
 	struct nxp_74hc153_platform_data *pdata = pdev->dev.platform_data;
 
 	if (nxp) {
-		int err;
-
-		err = gpiochip_remove(&nxp->gpio_chip);
-		if (err) {
-			dev_err(&pdev->dev,
-				"unable to remove gpio chip, err=%d\n",
-				err);
-			return err;
-		}
-
+		gpiochip_remove(&nxp->gpio_chip);
 		gpio_free(pdata->gpio_pin_2y);
 		gpio_free(pdata->gpio_pin_1y);
 		gpio_free(pdata->gpio_pin_s1);

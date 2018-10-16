@@ -9,18 +9,18 @@ include $(TOPDIR)/rules.mk
 ARCH:=mipsel
 BOARD:=ar7
 BOARDNAME:=TI AR7
-FEATURES:=squashfs atm
+FEATURES:=squashfs atm low_mem
 MAINTAINER:=Florian Fainelli <florian@openwrt.org>
 SUBTARGETS:=generic ac49x
 
-LINUX_VERSION:=3.10.34
-
-include $(INCLUDE_DIR)/target.mk
-
-DEFAULT_PACKAGES+= swconfig
+KERNEL_PATCHVER:=4.9
 
 define Target/Description
 	Build firmware images for TI AR7 based routers.
 endef
+
+include $(INCLUDE_DIR)/target.mk
+
+DEFAULT_PACKAGES+= swconfig
 
 $(eval $(call BuildTarget))

@@ -12,18 +12,18 @@ BOARDNAME:=Cavium Networks Econa CNS3xxx
 FEATURES:=squashfs fpu gpio pcie usb usbgadget
 CPU_TYPE:=mpcore
 CPU_SUBTYPE:=vfp
-MAINTAINER:=Imre Kaloz <kaloz@openwrt.org>
+MAINTAINER:=Felix Fietkau <nbd@nbd.name>
 
-LINUX_VERSION:=3.8.13
-
-include $(INCLUDE_DIR)/target.mk
+KERNEL_PATCHVER:=4.14
 
 define Target/Description
 	Build images for Cavium Networks Econa CNS3xxx based boards,
 	eg. the Gateworks Laguna family
 endef
 
-KERNELNAME:="zImage"
+include $(INCLUDE_DIR)/target.mk
+
+KERNELNAME:=zImage
 
 DEFAULT_PACKAGES += kmod-ath9k kmod-usb2 wpad-mini
 

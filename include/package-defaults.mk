@@ -1,11 +1,11 @@
-# 
+#
 # Copyright (C) 2006 OpenWrt.org
 #
 # This is free software, licensed under the GNU General Public License v2.
 # See /LICENSE for more information.
 #
 
-PKG_DEFAULT_DEPENDS = +libc +USE_EGLIBC:librt +USE_EGLIBC:libpthread
+PKG_DEFAULT_DEPENDS = +libc +GCC_LIBSSP:libssp +USE_GLIBC:librt +USE_GLIBC:libpthread
 
 ifneq ($(PKG_NAME),toolchain)
   PKG_FIXUP_DEPENDS = $(if $(filter kmod-%,$(1)),$(2),$(PKG_DEFAULT_DEPENDS) $(filter-out $(PKG_DEFAULT_DEPENDS),$(2)))
@@ -19,6 +19,7 @@ define Package/Default
   CATEGORY:=Extra packages
   DEPENDS:=
   MDEPENDS:=
+  CONFLICTS:=
   PROVIDES:=
   EXTRA_DEPENDS:=
   MAINTAINER:=$(PKG_MAINTAINER)
@@ -53,18 +54,28 @@ define Package/Default
   HIDDEN:=
   URL:=
   VARIANT:=
+  DEFAULT_VARIANT:=
+  USERID:=
+  ALTERNATIVES:=
+  LICENSE:=$(PKG_LICENSE)
+  LICENSE_FILES:=$(PKG_LICENSE_FILES)
 endef
 
 Build/Patch:=$(Build/Patch/Default)
 ifneq ($(strip $(PKG_UNPACK)),)
   define Build/Prepare/Default
 	$(PKG_UNPACK)
+	[ ! -d ./src/ ] || $(CP) ./src/. $(PKG_BUILD_DIR)
 	$(Build/Patch)
   endef
 endif
 
 EXTRA_CXXFLAGS = $(EXTRA_CFLAGS)
-DISABLE_NLS:=--disable-nls
+ifeq ($(CONFIG_BUILD_NLS),y)
+    DISABLE_NLS:=
+else
+    DISABLE_NLS:=--disable-nls
+endif
 
 CONFIGURE_PREFIX:=/usr
 CONFIGURE_ARGS = \
@@ -84,20 +95,21 @@ CONFIGURE_ARGS = \
 		--mandir=$(CONFIGURE_PREFIX)/man \
 		--infodir=$(CONFIGURE_PREFIX)/info \
 		$(DISABLE_NLS) \
-		$(DISABLE_LARGEFILE) \
 		$(DISABLE_IPV6)
 
 CONFIGURE_VARS = \
 		$(TARGET_CONFIGURE_OPTS) \
 		CFLAGS="$(TARGET_CFLAGS) $(EXTRA_CFLAGS)" \
-		CXXFLAGS="$(TARGET_CXXFLAGS) $(EXTRA_CFLAGS)" \
+		CXXFLAGS="$(TARGET_CXXFLAGS) $(EXTRA_CXXFLAGS)" \
 		CPPFLAGS="$(TARGET_CPPFLAGS) $(EXTRA_CPPFLAGS)" \
 		LDFLAGS="$(TARGET_LDFLAGS) $(EXTRA_LDFLAGS)" \
 
 CONFIGURE_PATH = .
 CONFIGURE_CMD = ./configure
 
-replace_script=$(FIND) $(1) -name $(2) | $(XARGS) chmod u+w; $(FIND) $(1) -name $(2) | $(XARGS) -n1 cp $(SCRIPT_DIR)/$(2);
+replace_script=$(FIND) $(1) -name $(2) | $(XARGS) chmod u+w; \
+	       $(FIND) $(1) -name $(2) | $(XARGS) -n1 cp --remove-destination \
+	       $(SCRIPT_DIR)/$(2);
 
 define Build/Configure/Default
 	(cd $(PKG_BUILD_DIR)/$(CONFIGURE_PATH)/$(strip $(3)); \
@@ -127,7 +139,7 @@ MAKE_INSTALL_FLAGS = \
 	$(MAKE_FLAGS) \
 	DESTDIR="$(PKG_INSTALL_DIR)"
 
-MAKE_PATH = .
+MAKE_PATH ?= .
 
 define Build/Compile/Default
 	+$(MAKE_VARS) \

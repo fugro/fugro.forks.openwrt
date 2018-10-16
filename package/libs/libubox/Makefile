@@ -1,25 +1,24 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=libubox
-PKG_VERSION:=2014-03-18
-PKG_RELEASE=$(PKG_SOURCE_VERSION)
+PKG_RELEASE=1
 
 PKG_SOURCE_PROTO:=git
-PKG_SOURCE_URL:=http://git.openwrt.org/project/libubox.git
-PKG_SOURCE_SUBDIR:=$(PKG_NAME)-$(PKG_VERSION)
-PKG_SOURCE_VERSION:=4f44401ae8d23465261cef80b87630ffccd5a864
-PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION)-$(PKG_SOURCE_VERSION).tar.gz
-PKG_MIRROR_MD5SUM:=
+PKG_SOURCE_URL=$(PROJECT_GIT)/project/libubox.git
+PKG_SOURCE_DATE:=2018-07-25
+PKG_SOURCE_VERSION:=c83a84afbef2b24f960ddeda0b5e2ab01fba6981
+PKG_MIRROR_HASH:=4a9594d2ae3706174d182a21fe815f1d18c20beca6593707cc757994975dc670
 CMAKE_INSTALL:=1
 
-PKG_LICENSE:=ISC BSD-3c
+PKG_LICENSE:=ISC
 PKG_LICENSE_FILES:=
 
-PKG_MAINTAINER:=Felix Fietkau <nbd@openwrt.org>
+PKG_MAINTAINER:=Felix Fietkau <nbd@nbd.name>
 
 PKG_BUILD_DEPENDS:=lua
 
 include $(INCLUDE_DIR)/package.mk
+include $(INCLUDE_DIR)/host-build.mk
 include $(INCLUDE_DIR)/cmake.mk
 
 define Package/libubox
@@ -40,7 +39,7 @@ endef
 define Package/jshn
   SECTION:=utils
   CATEGORY:=Utilities
-  DEPENDS:=+libjson-c
+  DEPENDS:=+libjson-c +libubox +libblobmsg-json
   TITLE:=JSON SHell Notation
 endef
 
@@ -92,8 +91,14 @@ define Package/libubox-lua/install
 	$(CP) $(PKG_BUILD_DIR)/lua/uloop.so $(1)/usr/lib/lua/
 endef
 
+
+CMAKE_HOST_OPTIONS += \
+	-DBUILD_LUA=OFF \
+	-DBUILD_EXAMPLES=OFF \
+
 $(eval $(call BuildPackage,libubox))
 $(eval $(call BuildPackage,libblobmsg-json))
 $(eval $(call BuildPackage,jshn))
 $(eval $(call BuildPackage,libjson-script))
 $(eval $(call BuildPackage,libubox-lua))
+$(eval $(call HostBuild))

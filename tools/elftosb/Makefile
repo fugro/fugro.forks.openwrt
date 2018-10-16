@@ -11,12 +11,12 @@ PKG_VERSION:=10.12.01
 
 PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
 PKG_SOURCE_URL:=http://repository.timesys.com/buildsources/e/elftosb/elftosb-10.12.01/
-PKG_MD5SUM:=e8005d606c1e0bb3507c82f6eceb3056
+PKG_HASH:=77bb6981620f7575b87d136d94c7daa88dd09195959cc75fc18b138369ecd42b
 
 include $(INCLUDE_DIR)/host-build.mk
 
 define Host/Compile
-	$(MAKE) -C $(HOST_BUILD_DIR) LDFLAGS="$(HOST_LDFLAGS) $(HOST_STATIC_LINKING)"
+	$(MAKE) -C $(HOST_BUILD_DIR) LDFLAGS="$(HOST_LDFLAGS)"
 endef
 
 define Host/Install

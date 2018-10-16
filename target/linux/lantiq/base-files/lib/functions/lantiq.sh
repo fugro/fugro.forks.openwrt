@@ -1,9 +1,5 @@
 #!/bin/sh
 
-lantiq_board_id() {
-	grep "^machine" /proc/cpuinfo | sed "s/machine.*: \(.*\)/\1/g" | sed "s/\(.*\) - .*/\1/g"             
-}
-
-lantiq_board_name() {
-	grep "^machine" /proc/cpuinfo | sed "s/machine.*: \(.*\)/\1/g" | sed "s/.* - \(.*\)/\1/g"
+lantiq_is_vdsl_system() {
+	grep -qE "system type.*: (VR9|xRX200)" /proc/cpuinfo
 }

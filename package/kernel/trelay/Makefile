@@ -31,13 +31,12 @@ endef
 
 include $(INCLUDE_DIR)/kernel-defaults.mk
 
-define Build/Prepare
-	mkdir -p $(PKG_BUILD_DIR)
-	cp src/Makefile src/trelay.c $(PKG_BUILD_DIR)/
+define Build/Compile
+	$(KERNEL_MAKE) SUBDIRS="$(PKG_BUILD_DIR)" modules
 endef
 
-define Build/Compile
-	$(MAKE) $(KERNEL_MAKEOPTS) SUBDIRS="$(PKG_BUILD_DIR)" modules
+define KernelPackage/trelay/conffiles
+/etc/config/trelay
 endef
 
 define KernelPackage/trelay/install

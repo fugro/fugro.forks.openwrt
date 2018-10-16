@@ -24,6 +24,7 @@
 #include <linux/gpio.h>
 #include <linux/platform_data/gpio-latch.h>
 #include <linux/platform_data/rb91x_nand.h>
+#include <linux/platform_data/phy-at803x.h>
 
 #include <asm/prom.h>
 #include <asm/mach-ath79/ath79.h>
@@ -52,7 +53,7 @@
 #define RB91X_FLAG_USB		BIT(0)
 #define RB91X_FLAG_PCIE		BIT(1)
 
-#define RB91X_LATCH_GPIO_BASE	AR934X_GPIO_COUNT
+#define RB91X_LATCH_GPIO_BASE	32
 #define RB91X_LATCH_GPIO(_x)	(RB91X_LATCH_GPIO_BASE + (_x))
 
 #define RB91X_SSR_GPIO_BASE	(RB91X_LATCH_GPIO_BASE + AR934X_GPIO_COUNT)
@@ -139,7 +140,7 @@ static struct rb91x_nand_platform_data rb711gr100_nand_data __initdata = {
 	.gpio_nle = RB91X_GPIO_NLE,
 };
 
-static u8 rb711gr100_ssr_initdata[] __initdata = {
+static u8 rb711gr100_ssr_initdata[] = {
 	BIT(RB91X_SSR_BIT_PCIE_POWER) |
 	BIT(RB91X_SSR_BIT_USB_POWER) |
 	BIT(RB91X_SSR_BIT_5)
@@ -151,17 +152,6 @@ static struct gen_74x164_chip_platform_data rb711gr100_ssr_data = {
 	.init_data = rb711gr100_ssr_initdata,
 };
 
-static struct ath79_spi_controller_data rb711gr100_spi0_cdata = {
-	.cs_type = ATH79_SPI_CS_TYPE_INTERNAL,
-	.cs_line = 0,
-	.is_flash = true,
-};
-
-static struct ath79_spi_controller_data rb711gr100_spi1_cdata = {
-	.cs_type = ATH79_SPI_CS_TYPE_GPIO,
-	.cs_line = RB91X_GPIO_SSR_STROBE,
-};
-
 static struct spi_board_info rb711gr100_spi_info[] = {
 	{
 		.bus_num	= 0,
@@ -169,20 +159,24 @@ static struct spi_board_info rb711gr100_spi_info[] = {
 		.max_speed_hz	= 25000000,
 		.modalias	= "m25p80",
 		.platform_data  = &rb711gr100_spi_flash_data,
-		.controller_data = &rb711gr100_spi0_cdata
 	}, {
 		.bus_num	= 0,
 		.chip_select	= 1,
 		.max_speed_hz	= 10000000,
 		.modalias	= "74x164",
 		.platform_data	= &rb711gr100_ssr_data,
-		.controller_data = &rb711gr100_spi1_cdata
 	}
+};
+
+static int rb711gr100_spi_cs_gpios[2] = {
+	-ENOENT,
+	RB91X_GPIO_SSR_STROBE,
 };
 
 static struct ath79_spi_platform_data rb711gr100_spi_data __initdata = {
 	.bus_num = 0,
 	.num_chipselect = 2,
+	.cs_gpios = rb711gr100_spi_cs_gpios,
 };
 
 static struct gpio_led rb711gr100_leds[] __initdata = {
@@ -220,6 +214,21 @@ static struct gpio_led rb711gr100_leds[] __initdata = {
 		.name		= "rb:green:power",
 		.gpio		= RB91X_GPIO_LED_POWER,
 		.active_low	= 0,
+		.default_state	= LEDS_GPIO_DEFSTATE_KEEP,
+	},
+};
+
+static struct at803x_platform_data rb91x_at803x_data = {
+	.disable_smarteee = 1,
+	.enable_rgmii_rx_delay = 1,
+	.enable_rgmii_tx_delay = 1,
+};
+
+static struct mdio_board_info rb91x_mdio0_info[] = {
+	{
+		.bus_id = "ag71xx-mdio.0",
+		.phy_addr = 0,
+		.platform_data = &rb91x_at803x_data,
 	},
 };
 
@@ -293,9 +302,13 @@ static void __init rb711gr100_setup(void)
 			   ARRAY_SIZE(rb711gr100_spi_info));
 
 	ath79_setup_ar934x_eth_cfg(AR934X_ETH_CFG_RGMII_GMAC0 |
+				   AR934X_ETH_CFG_RXD_DELAY |
 				   AR934X_ETH_CFG_SW_ONLY_MODE);
 
 	ath79_register_mdio(0, 0x0);
+
+	mdiobus_register_board_info(rb91x_mdio0_info,
+				    ARRAY_SIZE(rb91x_mdio0_info));
 
 	ath79_init_mac(ath79_eth0_data.mac_addr, ath79_mac_base, 0);
 	ath79_eth0_data.phy_if_mode = PHY_INTERFACE_MODE_RGMII;
