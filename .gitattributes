@@ -1,5 +1,1 @@
-# convert all text files to LF before saving them into the repository and restore them as CRLF on windows
-* text=auto
-
-# except patch files, these should be stored as-is
-*.patch -text
+* -text
