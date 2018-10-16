@@ -1,27 +1,19 @@
 PART_NAME=firmware
+REQUIRE_IMAGE_METADATA=1
 
 platform_check_image() {
-	[ "$ARGC" -gt 1 ] && return 1
+	return 0
+}
 
-	case "$(get_magic_word "$1")" in
-		# uImage
-		2705) return 0;;
-		# tplink
-		0200) return 0;;
-		*)
-			echo "Invalid image type"
-			return 1
+platform_do_upgrade() {
+	local board=$(board_name)
+
+	case "$board" in
+	bt,homehub-v2b|bt,homehub-v3a|bt,homehub-v5a|zyxel,p-2812hnu-f1|zyxel,p-2812hnu-f3)
+		nand_do_upgrade $1
+		;;
+	*)
+		default_do_upgrade "$ARGV"
 		;;
 	esac
 }
-
-# use default for platform_do_upgrade()
-
-disable_watchdog() {
-	killall watchdog
-	( ps | grep -v 'grep' | grep '/dev/watchdog' ) && {
-		echo 'Could not disable watchdog'
-		return 1
-	}
-}
-append sysupgrade_pre_upgrade disable_watchdog

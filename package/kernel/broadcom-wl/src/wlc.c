@@ -1,7 +1,7 @@
 /*
  * wlc - Broadcom Wireless Driver Control Utility
  *
- * Copyright (C) 2006 Felix Fietkau <nbd@openwrt.org>
+ * Copyright (C) 2006 Felix Fietkau <nbd@nbd.name>
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -999,6 +999,14 @@ static const struct wlc_call wlc_calls[] = {
 		.data.str = "cap",
 		.desc = "Number of VIF's supported"
 	},
+	{
+		.name = "leddc",
+		.param = INT,
+		.handler = wlc_iovar,
+		.data.str = "leddc",
+		.desc = "LED Duty Cycle"
+	},
+	
 };
 #define wlc_calls_size (sizeof(wlc_calls) / sizeof(struct wlc_call))
 

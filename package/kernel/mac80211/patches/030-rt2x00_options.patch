@@ -1,5 +1,5 @@
---- a/drivers/net/wireless/rt2x00/Kconfig
-+++ b/drivers/net/wireless/rt2x00/Kconfig
+--- a/drivers/net/wireless/ralink/rt2x00/Kconfig
++++ b/drivers/net/wireless/ralink/rt2x00/Kconfig
 @@ -225,36 +225,37 @@ config RT2800SOC
  
  
@@ -29,7 +29,7 @@
  config RT2X00_LIB_SOC
 -	tristate
 +	tristate "RT2x00 SoC support"
-+	depends on SOC_RT288X || SOC_RT305X
++	depends on SOC_RT288X || SOC_RT305X || SOC_MT7620
  	depends on m
  	select RT2X00_LIB
  
@@ -43,5 +43,5 @@
 -	tristate
 +	tristate "RT2x00 support"
  	depends on m
- 	select BACKPORT_AVERAGE
  
+ config RT2X00_LIB_FIRMWARE

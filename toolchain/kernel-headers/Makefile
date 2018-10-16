@@ -17,9 +17,15 @@ include $(INCLUDE_DIR)/kernel.mk
 PKG_NAME:=linux
 PKG_VERSION:=$(LINUX_VERSION)
 PKG_SOURCE:=$(LINUX_SOURCE)
-PKG_SOURCE_URL:=$(LINUX_SITE)
+ifneq ($(strip $(CONFIG_KERNEL_GIT_CLONE_URI)),"")
+  PKG_SOURCE_PROTO:=git
+  PKG_SOURCE_URL:=$(call qstrip,$(CONFIG_KERNEL_GIT_CLONE_URI))
+  PKG_SOURCE_VERSION:=$(CONFIG_KERNEL_GIT_REF)
+else
+  PKG_SOURCE_URL:=$(LINUX_SITE)
+endif
 HOST_BUILD_DIR:=$(KERNEL_BUILD_DIR)/linux-$(LINUX_VERSION)
-PKG_MD5SUM:=$(LINUX_KERNEL_MD5SUM)
+PKG_HASH:=$(LINUX_KERNEL_HASH)
 LINUX_DIR := $(HOST_BUILD_DIR)
 FILES_DIR := 
 PATCH_DIR := ./patches$(if $(wildcard ./patches-$(LINUX_VERSION)),-$(LINUX_VERSION))
@@ -36,13 +42,9 @@ HOST_EXTRACFLAGS=
 LINUX_HAS_HEADERS_INSTALL:=y
 
 KMAKE := $(MAKE) -C $(HOST_BUILD_DIR) \
-	HOSTCFLAGS="$(HOST_CFLAGS) -Wall -Wmissing-prototypes -Wstrict-prototypes" \
-	ARCH=$(LINUX_KARCH) \
+	$(KERNEL_MAKE_FLAGS) \
 	CC="$(KERNEL_CC)" \
-	CFLAGS="$(TARGET_CFLAGS)" \
-	CROSS_COMPILE=$(TARGET_CROSS) \
-	KBUILD_HAVE_NLS=no \
-	CONFIG_SHELL=$(BASH)
+	CFLAGS="$(TARGET_CFLAGS)"
 
 define Host/Configure/all
 	mkdir -p $(BUILD_DIR_TOOLCHAIN)/linux-dev
@@ -57,18 +59,10 @@ ifneq ($(CONFIG_mips)$(CONFIG_mipsel),)
 	$(CP) \
 		$(HOST_BUILD_DIR)/arch/mips/include/asm/asm.h \
 		$(HOST_BUILD_DIR)/arch/mips/include/asm/regdef.h \
+		$(HOST_BUILD_DIR)/arch/mips/include/asm/asm-eva.h \
 		$(BUILD_DIR_TOOLCHAIN)/linux-dev/include/asm/
   endef
 endif
-
-define Host/Configure/post/cris
-	$(CP) \
-		$(HOST_BUILD_DIR)/include/linux/user.h \
-		$(BUILD_DIR_TOOLCHAIN)/linux-dev/include/linux/
-	ln -snf $(BUILD_DIR_TOOLCHAIN)/linux-dev/include/arch-v10/arch \
-		$(BUILD_DIR_TOOLCHAIN)/linux-dev/include/arch
-	$(SED) '/#include <asm\/page\.h>/d' $(BUILD_DIR_TOOLCHAIN)/linux-dev/include/asm/user.h
-endef
 
 define Host/Configure/post/mips
 	$(call Host/Configure/lzma)
@@ -79,8 +73,10 @@ define Host/Configure/post/mipsel
 endef
 
 define Host/Prepare
+	rm -rf $(BUILD_DIR_TOOLCHAIN)/linux-*
 	$(call Kernel/Prepare/Default)
-	ln -sf linux-$(LINUX_VERSION) $(BUILD_DIR_TOOLCHAIN)/linux
+	rm -f $(BUILD_DIR_TOOLCHAIN)/linux
+	ln -s linux-$(LINUX_VERSION) $(BUILD_DIR_TOOLCHAIN)/linux
 	$(SED) 's/@expr length/@-expr length/' $(HOST_BUILD_DIR)/Makefile
 endef
 

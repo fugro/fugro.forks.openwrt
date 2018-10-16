@@ -6,10 +6,8 @@
 #
 
 define Profile/Generic
+  PRIORITY:=1
   NAME:=Generic (default)
-  PACKAGES:= \
-	kmod-thermal-imx kmod-usb-chipidea kmod-usb-mxs-phy \
-	uboot-envtools
 endef
 
 define Profile/Generic/Description

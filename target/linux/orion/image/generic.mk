@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2008-2013 OpenWrt.org
+# Copyright (C) 2008-2015 OpenWrt.org
 #
 # This is free software, licensed under the GNU General Public License v2.
 # See /LICENSE for more information.
@@ -14,7 +14,7 @@
 
 
 ## Kernel mtd partition size in KiB
-KERNEL_MTD_SIZE:=1024
+KERNEL_MTD_SIZE:=1280
 
 # Netgear WNR854T: erase size is 128KiB = 0x00020000 = 131072
 ERASE_SIZE_128K:=128
@@ -67,6 +67,14 @@ endif
  ifneq ($(CONFIG_TARGET_ROOTFS_INITRAMFS),y)  # nothing more to do for a ramdisk build
 $(call Image/Default/FileSizeCheck,$(KDIR)/wrt350nv2-uImage,$(shell expr $(KERNEL_MTD_SIZE) \* 1024))
  endif
+
+ ## Buffalo Terastation Pro II/Live: mach id 1584 (0x0630)
+$(call Image/BuildKernel/ARM/zImage,terastation-pro2,"\x06\x1c\xa0\xe3\x30\x10\x81\xe3")
+$(call Image/BuildKernel/ARM/uImage,terastation-pro2)
+ifeq ($(CONFIG_TARGET_ROOTFS_INITRAMFS),y)
+$(call Image/BuildKernel/ARM/zImage,terastation-pro2,"\x06\x1c\xa0\xe3\x30\x10\x81\xe3",-initramfs)
+$(call Image/BuildKernel/ARM/uImage,terastation-pro2,-initramfs)
+endif
 endef
 
 define Image/BuildKernel/ARM/zImage
@@ -83,7 +91,7 @@ define Image/BuildKernel/ARM/uImage
 	# $(BOARD) kernel uImage for $(1)
 	'$(STAGING_DIR_HOST)/bin/mkimage' -A arm -O linux -T kernel \
 	-C none -a 0x00008000 -e 0x00008000 -n 'Linux-$(LINUX_VERSION)' \
-	-d '$(KDIR)/$(1)-zImage' '$(KDIR)/$(1)-uImage'
+	-d '$(KDIR)/$(1)-zImage$(2)' '$(KDIR)/$(1)-uImage$(2)'
  ifeq ($(2),-initramfs) # only copy uImage for ramdisk build
 	cp '$(KDIR)/$(1)-uImage-initramfs' '$(BIN_DIR)/openwrt-$(1)-uImage-initramfs'
  endif
@@ -102,7 +110,7 @@ endef
 
 define Image/Default/FileSizeCheck
  # parameters: 1 = file path, 2 = maximum size in bytes
-	[ `stat -c %s '$(1)'` -le $(2) ] || { echo '   ERROR: $(1) too big (> $(2) bytes)'; exit 1; }
+	[ `stat -c %s '$(1)'` -le $(2) ] || { echo '   ERROR: $(1) too big (> $(2) bytes)'; rm -f $(1); }
 endef
 
 
@@ -124,6 +132,9 @@ $(call Image/Build/Default,$(1),wnr854t,$(ERASE_SIZE_128K),$(KERNEL_MTD_SIZE),.j
 
  ## Linksys WRT350N v2
 $(call Image/Build/Linksys/wrt350nv2,$(1),wrt350nv2,$(ERASE_SIZE_64K),$(KERNEL_MTD_SIZE),)
+
+ ## Buffalo Terastation Pro II/Live
+$(call Image/Build/Default,$(1),terastation-pro2,$(ERASE_SIZE_128K),$(KERNEL_MTD_SIZE),.jffs2,TERASTATION_PRO2)
 endef
 
 define Image/Build/squashfs
@@ -204,18 +215,14 @@ define Image/Build/Linksys/wrt350nv2-builder
 	)
 	echo '#version 0x2020' >> '$(TMP_DIR)/$(2)_factory/$(2).par'
  # create bin file for recovery and factory image
-	( \
+	-( \
 		cd '$(TMP_DIR)/$(2)_factory'; \
 		'$(STAGING_DIR_HOST)/bin/wrt350nv2-builder' -b '$(TMP_DIR)/$(2)_factory/$(2).par'; \
-	)
- # copy bin file as recovery image
-	$(CP) '$(TMP_DIR)/$(2)_factory/wrt350n.bin' '$(BIN_DIR)/openwrt-$(2)-$(1)-recovery.bin'
- # create factory image for stock firmware update mechanism
+	) && $(CP) '$(TMP_DIR)/$(2)_factory/wrt350n.bin' '$(BIN_DIR)/openwrt-$(2)-$(1)-recovery.bin' && \
 	( \
 		cd '$(TMP_DIR)/$(2)_factory'; \
 		zip 'wrt350n.zip' 'wrt350n.bin'; \
-	)
-	'$(STAGING_DIR_HOST)/bin/wrt350nv2-builder' -z '$(TMP_DIR)/$(2)_factory/wrt350n.zip' '$(BIN_DIR)/openwrt-$(2)-$(1)-factory.img'
+	) && '$(STAGING_DIR_HOST)/bin/wrt350nv2-builder' -z '$(TMP_DIR)/$(2)_factory/wrt350n.zip' '$(BIN_DIR)/openwrt-$(2)-$(1)-factory.img'
 	rm -rf '$(TMP_DIR)/$(2)_factory'
 endef
 

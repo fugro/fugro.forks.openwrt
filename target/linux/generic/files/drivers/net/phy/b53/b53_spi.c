@@ -21,6 +21,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/spi/spi.h>
+#include <linux/of.h>
 #include <linux/platform_data/b53.h>
 
 #include "b53_priv.h"
@@ -86,6 +87,7 @@ static inline int b53_spi_set_page(struct spi_device *spi, u8 page)
 static inline int b53_prepare_reg_access(struct spi_device *spi, u8 page)
 {
 	int ret = b53_spi_clear_status(spi);
+
 	if (ret)
 		return ret;
 
@@ -144,6 +146,7 @@ static int b53_spi_read8(struct b53_device *dev, u8 page, u8 reg, u8 *val)
 static int b53_spi_read16(struct b53_device *dev, u8 page, u8 reg, u16 *val)
 {
 	int ret = b53_spi_read(dev, page, reg, (u8 *)val, 2);
+
 	if (!ret)
 		*val = le16_to_cpu(*val);
 
@@ -153,6 +156,7 @@ static int b53_spi_read16(struct b53_device *dev, u8 page, u8 reg, u16 *val)
 static int b53_spi_read32(struct b53_device *dev, u8 page, u8 reg, u32 *val)
 {
 	int ret = b53_spi_read(dev, page, reg, (u8 *)val, 4);
+
 	if (!ret)
 		*val = le32_to_cpu(*val);
 
@@ -174,6 +178,7 @@ static int b53_spi_read48(struct b53_device *dev, u8 page, u8 reg, u64 *val)
 static int b53_spi_read64(struct b53_device *dev, u8 page, u8 reg, u64 *val)
 {
 	int ret = b53_spi_read(dev, page, reg, (u8 *)val, 8);
+
 	if (!ret)
 		*val = le64_to_cpu(*val);
 
@@ -303,18 +308,30 @@ static int b53_spi_remove(struct spi_device *spi)
 {
 	struct b53_device *dev = spi_get_drvdata(spi);
 
-	if (dev) {
+	if (dev)
 		b53_switch_remove(dev);
-	}
 
 	return 0;
 }
+
+static const struct of_device_id b53_of_match[] = {
+	{ .compatible = "brcm,bcm5325" },
+	{ .compatible = "brcm,bcm53115" },
+	{ .compatible = "brcm,bcm53125" },
+	{ .compatible = "brcm,bcm53128" },
+	{ .compatible = "brcm,bcm5365" },
+	{ .compatible = "brcm,bcm5395" },
+	{ .compatible = "brcm,bcm5397" },
+	{ .compatible = "brcm,bcm5398" },
+	{ /* sentinel */ },
+};
 
 static struct spi_driver b53_spi_driver = {
 	.driver = {
 		.name	= "b53-switch",
 		.bus	= &spi_bus_type,
 		.owner	= THIS_MODULE,
+		.of_match_table = b53_of_match,
 	},
 	.probe	= b53_spi_probe,
 	.remove	= b53_spi_remove,

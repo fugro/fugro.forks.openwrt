@@ -8,14 +8,15 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=iw
-PKG_VERSION:=3.14
+PKG_VERSION:=4.14
 PKG_RELEASE:=1
 
 PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.xz
-PKG_SOURCE_URL:=https://www.kernel.org/pub/software/network/iw
-PKG_MD5SUM:=66e41053f6fc0781b683b5b688442de6
+PKG_SOURCE_URL:=@KERNEL/software/network/iw
+PKG_HASH:=f01671c0074bfdec082a884057edba1b9efd35c89eda554638496f03b769ad89
 
-PKG_MAINTAINER:=Felix Fietkau <nbd@openwrt.org>
+PKG_MAINTAINER:=Felix Fietkau <nbd@nbd.name>
+PKG_LICENSE:=GPL-2.0
 
 include $(INCLUDE_DIR)/package.mk
 
@@ -24,13 +25,12 @@ define Package/iw
   CATEGORY:=Network
   TITLE:=cfg80211 interface configuration utility
   URL:=http://wireless.kernel.org/en/users/Documentation/iw
-  DEPENDS:= +libnl-tiny @(!TARGET_avr32||BROKEN)
+  DEPENDS:= +libnl-tiny
 endef
 
 define Build/Configure
 	echo "const char iw_version[] = \"$(PKG_VERSION)\";" > $(PKG_BUILD_DIR)/version.c
-	rm -f $(PKG_BUILD_DIR)/version.sh
-	touch $(PKG_BUILD_DIR)/version.sh
+	echo "#!/bin/sh" > $(PKG_BUILD_DIR)/version.sh
 	chmod +x $(PKG_BUILD_DIR)/version.sh
 endef
 

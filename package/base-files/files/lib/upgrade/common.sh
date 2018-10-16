@@ -2,117 +2,37 @@
 
 RAM_ROOT=/tmp/root
 
-ldd() { LD_TRACE_LOADED_OBJECTS=1 $*; }
-libs() { ldd $* | awk '{print $3}'; }
+[ -x /usr/bin/ldd ] || ldd() { LD_TRACE_LOADED_OBJECTS=1 $*; }
+libs() { ldd $* 2>/dev/null | sed -r 's/(.* => )?(.*) .*/\2/'; }
 
 install_file() { # <file> [ <file> ... ]
+	local target dest dir
 	for file in "$@"; do
+		if [ -L "$file" ]; then
+			target="$(readlink -f "$file")"
+			dest="$RAM_ROOT/$file"
+			[ ! -f "$dest" ] && {
+				dir="$(dirname "$dest")"
+				mkdir -p "$dir"
+				ln -s "$target" "$dest"
+			}
+			file="$target"
+		fi
 		dest="$RAM_ROOT/$file"
-		[ -f $file -a ! -f $dest ] && {
-			dir="$(dirname $dest)"
+		[ -f "$file" -a ! -f "$dest" ] && {
+			dir="$(dirname "$dest")"
 			mkdir -p "$dir"
-			cp $file $dest
+			cp "$file" "$dest"
 		}
 	done
 }
 
-install_bin() { # <file> [ <symlink> ... ]
+install_bin() {
+	local src files
 	src=$1
 	files=$1
 	[ -x "$src" ] && files="$src $(libs $src)"
 	install_file $files
-	[ -e /lib/ld.so.1 ] && {
-		install_file /lib/ld.so.1
-	}
-	shift
-	for link in "$@"; do {
-		dest="$RAM_ROOT/$link"
-		dir="$(dirname $dest)"
-		mkdir -p "$dir"
-		[ -f "$dest" ] || ln -s $src $dest
-	}; done
-}
-
-supivot() { # <new_root> <old_root>
-	/bin/mount | grep "on $1 type" 2>&- 1>&- || /bin/mount -o bind $1 $1
-	mkdir -p $1$2 $1/proc $1/sys $1/dev $1/tmp $1/overlay && \
-	/bin/mount -o noatime,move /proc $1/proc && \
-	pivot_root $1 $1$2 || {
-		/bin/umount -l $1 $1
-		return 1
-	}
-
-	/bin/mount -o noatime,move $2/sys /sys
-	/bin/mount -o noatime,move $2/dev /dev
-	/bin/mount -o noatime,move $2/tmp /tmp
-	/bin/mount -o noatime,move $2/overlay /overlay 2>&-
-	return 0
-}
-
-run_ramfs() { # <command> [...]
-	install_bin /bin/busybox /bin/ash /bin/sh /bin/mount /bin/umount	\
-		/sbin/pivot_root /usr/bin/wget /sbin/reboot /bin/sync /bin/dd	\
-		/bin/grep /bin/cp /bin/mv /bin/tar /usr/bin/md5sum "/usr/bin/["	\
-		/bin/vi /bin/ls /bin/cat /usr/bin/awk /usr/bin/hexdump		\
-		/bin/sleep /bin/zcat /usr/bin/bzcat /usr/bin/printf /usr/bin/wc
-
-	install_bin /sbin/mtd
-	install_bin /sbin/fs-state
-	install_bin /sbin/snapshot
-	for file in $RAMFS_COPY_BIN; do
-		install_bin $file
-	done
-	install_file /etc/resolv.conf /lib/functions.sh /lib/functions.sh /lib/upgrade/*.sh $RAMFS_COPY_DATA
-
-	supivot $RAM_ROOT /mnt || {
-		echo "Failed to switch over to ramfs. Please reboot."
-		exit 1
-	}
-
-	/bin/mount -o remount,ro /mnt
-	/bin/umount -l /mnt
-
-	grep /overlay /proc/mounts > /dev/null && {
-		/bin/mount -o noatime,remount,ro /overlay
-		/bin/umount -l /overlay
-	}
-
-	# spawn a new shell from ramdisk to reduce the probability of cache issues
-	exec /bin/busybox ash -c "$*"
-}
-
-kill_remaining() { # [ <signal> ]
-	local sig="${1:-TERM}"
-	echo -n "Sending $sig to remaining processes ... "
-
-	local stat
-	for stat in /proc/[0-9]*/stat; do
-		[ -f "$stat" ] || continue
-
-		local pid name state ppid rest
-		read pid name state ppid rest < $stat
-		name="${name#(}"; name="${name%)}"
-
-		local cmdline
-		read cmdline < /proc/$pid/cmdline
-
-		# Skip kernel threads
-		[ -n "$cmdline" ] || continue
-
-		case "$name" in
-			# Skip essential services
-			*procd*|*ash*|*init*|*watchdog*|*ssh*|*dropbear*|*telnet*|*login*|*hostapd*|*wpa_supplicant*|*nas*) : ;;
-
-			# Killable process
-			*)
-				if [ $pid -ne $$ ] && [ $ppid -ne $$ ]; then
-					echo -n "$name "
-					kill -$sig $pid 2>/dev/null
-				fi
-			;;
-		esac
-	done
-	echo ""
 }
 
 run_hooks() {
@@ -145,36 +65,140 @@ v() {
 	[ "$VERBOSE" -ge 1 ] && echo "$@"
 }
 
+json_string() {
+	local v="$1"
+	v="${v//\\/\\\\}"
+	v="${v//\"/\\\"}"
+	echo "\"$v\""
+}
+
 rootfs_type() {
 	/bin/mount | awk '($3 ~ /^\/$/) && ($5 !~ /rootfs/) { print $5 }'
 }
 
 get_image() { # <source> [ <command> ]
 	local from="$1"
-	local conc="$2"
-	local cmd
+	local cmd="$2"
 
-	case "$from" in
-		http://*|ftp://*) cmd="wget -O- -q";;
-		*) cmd="cat";;
-	esac
-	if [ -z "$conc" ]; then
-		local magic="$(eval $cmd $from 2>/dev/null | dd bs=2 count=1 2>/dev/null | hexdump -n 2 -e '1/1 "%02x"')"
+	if [ -z "$cmd" ]; then
+		local magic="$(dd if="$from" bs=2 count=1 2>/dev/null | hexdump -n 2 -e '1/1 "%02x"')"
 		case "$magic" in
-			1f8b) conc="zcat";;
-			425a) conc="bzcat";;
+			1f8b) cmd="zcat";;
+			425a) cmd="bzcat";;
+			*) cmd="cat";;
 		esac
 	fi
 
-	eval "$cmd $from 2>/dev/null ${conc:+| $conc}"
+	cat "$from" 2>/dev/null | $cmd
 }
 
 get_magic_word() {
-	get_image "$@" | dd bs=2 count=1 2>/dev/null | hexdump -v -n 2 -e '1/1 "%02x"'
+	(get_image "$@" | dd bs=2 count=1 | hexdump -v -n 2 -e '1/1 "%02x"') 2>/dev/null
 }
 
 get_magic_long() {
-	get_image "$@" | dd bs=4 count=1 2>/dev/null | hexdump -v -n 4 -e '1/1 "%02x"'
+	(get_image "$@" | dd bs=4 count=1 | hexdump -v -n 4 -e '1/1 "%02x"') 2>/dev/null
+}
+
+export_bootdevice() {
+	local cmdline uuid disk uevent line
+	local MAJOR MINOR DEVNAME DEVTYPE
+
+	if read cmdline < /proc/cmdline; then
+		case "$cmdline" in
+			*block2mtd=*)
+				disk="${cmdline##*block2mtd=}"
+				disk="${disk%%,*}"
+			;;
+			*root=*)
+				disk="${cmdline##*root=}"
+				disk="${disk%% *}"
+			;;
+		esac
+
+		case "$disk" in
+			PARTUUID=[a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9]-02)
+				uuid="${disk#PARTUUID=}"
+				uuid="${uuid%-02}"
+				for disk in $(find /dev -type b); do
+					set -- $(dd if=$disk bs=1 skip=440 count=4 2>/dev/null | hexdump -v -e '4/1 "%02x "')
+					if [ "$4$3$2$1" = "$uuid" ]; then
+						uevent="/sys/class/block/${disk##*/}/uevent"
+						break
+					fi
+				done
+			;;
+			/dev/*)
+				uevent="/sys/class/block/${disk##*/}/uevent"
+			;;
+		esac
+
+		if [ -e "$uevent" ]; then
+			while read line; do
+				export -n "$line"
+			done < "$uevent"
+			export BOOTDEV_MAJOR=$MAJOR
+			export BOOTDEV_MINOR=$MINOR
+			return 0
+		fi
+	fi
+
+	return 1
+}
+
+export_partdevice() {
+	local var="$1" offset="$2"
+	local uevent line MAJOR MINOR DEVNAME DEVTYPE
+
+	for uevent in /sys/class/block/*/uevent; do
+		while read line; do
+			export -n "$line"
+		done < "$uevent"
+		if [ $BOOTDEV_MAJOR = $MAJOR -a $(($BOOTDEV_MINOR + $offset)) = $MINOR -a -b "/dev/$DEVNAME" ]; then
+			export "$var=$DEVNAME"
+			return 0
+		fi
+	done
+
+	return 1
+}
+
+hex_le32_to_cpu() {
+	[ "$(echo 01 | hexdump -v -n 2 -e '/2 "%x"')" == "3031" ] && {
+		echo "${1:0:2}${1:8:2}${1:6:2}${1:4:2}${1:2:2}"
+		return
+	}
+	echo "$@"
+}
+
+get_partitions() { # <device> <filename>
+	local disk="$1"
+	local filename="$2"
+
+	if [ -b "$disk" -o -f "$disk" ]; then
+		v "Reading partition table from $filename..."
+
+		local magic=$(dd if="$disk" bs=2 count=1 skip=255 2>/dev/null)
+		if [ "$magic" != $'\x55\xAA' ]; then
+			v "Invalid partition table on $disk"
+			exit
+		fi
+
+		rm -f "/tmp/partmap.$filename"
+
+		local part
+		for part in 1 2 3 4; do
+			set -- $(hexdump -v -n 12 -s "$((0x1B2 + $part * 16))" -e '3/4 "0x%08X "' "$disk")
+
+			local type="$(( $(hex_le32_to_cpu $1) % 256))"
+			local lba="$(( $(hex_le32_to_cpu $2) ))"
+			local num="$(( $(hex_le32_to_cpu $3) ))"
+
+			[ $type -gt 0 ] || continue
+
+			printf "%2d %5d %7d\n" $part $lba $num >> "/tmp/partmap.$filename"
+		done
+	fi
 }
 
 jffs2_copy_config() {
@@ -187,21 +211,27 @@ jffs2_copy_config() {
 	fi
 }
 
+# Flash firmware to MTD partition
+#
+# $(1): path to image
+# $(2): (optional) pipe command to extract firmware, e.g. dd bs=n skip=m
 default_do_upgrade() {
 	sync
 	if [ "$SAVE_CONFIG" -eq 1 ]; then
-		get_image "$1" | mtd $MTD_CONFIG_ARGS -j "$CONF_TAR" write - "${PART_NAME:-image}"
+		get_image "$1" "$2" | mtd $MTD_CONFIG_ARGS -j "$CONF_TAR" write - "${PART_NAME:-image}"
 	else
-		get_image "$1" | mtd write - "${PART_NAME:-image}"
+		get_image "$1" "$2" | mtd write - "${PART_NAME:-image}"
 	fi
 }
 
-do_upgrade() {
+do_upgrade_stage2() {
 	v "Performing system upgrade..."
-	if type 'platform_do_upgrade' >/dev/null 2>/dev/null; then
-		platform_do_upgrade "$ARGV"
+	if [ -n "$do_upgrade" ]; then
+		eval "$do_upgrade"
+	elif type 'platform_do_upgrade' >/dev/null 2>/dev/null; then
+		platform_do_upgrade "$IMAGE"
 	else
-		default_do_upgrade "$ARGV"
+		default_do_upgrade "$IMAGE"
 	fi
 
 	if [ "$SAVE_CONFIG" -eq 1 ] && type 'platform_copy_config' >/dev/null 2>/dev/null; then
@@ -209,11 +239,11 @@ do_upgrade() {
 	fi
 
 	v "Upgrade completed"
-	[ -n "$DELAY" ] && sleep "$DELAY"
-	ask_bool 1 "Reboot" && {
-		v "Rebooting system..."
-		reboot -f
-		sleep 5
-		echo b 2>/dev/null >/proc/sysrq-trigger
-	}
+	sleep 1
+
+	v "Rebooting system..."
+	umount -a
+	reboot -f
+	sleep 5
+	echo b 2>/dev/null >/proc/sysrq-trigger
 }

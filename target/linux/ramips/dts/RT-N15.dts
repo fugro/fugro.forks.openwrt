@@ -1,30 +1,19 @@
 /dts-v1/;
 
-/include/ "rt2880.dtsi"
+#include "rt2880.dtsi"
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/input/input.h>
 
 / {
 	#address-cells = <1>;
 	#size-cells = <1>;
-	compatible = "RT-N15", "ralink,rt2880-soc";
+	compatible = "asus,rt-n15", "ralink,rt2880-soc";
 	model = "Asus RT-N15";
-
-	palmbus@300000 {
-		sysc@0 {
-			ralink,pinmux = "uartlite";
-			ralink,gpiomux = "i2c";
-			ralink,uartmux = "gpio";
-			ralink,wdtmux = <1>;
-		};
-
-		gpio0: gpio@600 {
-			status = "okay";
-		};
-	};
 
 	cfi@1f000000 {
 		compatible = "cfi-flash";
 		reg = <0x1f000000 0x800000>;
-
 		bank-width = <2>;
 		device-width = <2>;
 		#address-cells = <1>;
@@ -35,35 +24,29 @@
 			reg = <0x0 0x30000>;
 			read-only;
 		};
+
 		partition@30000 {
 			label = "uboot-env";
 			reg = <0x30000 0x10000>;
 			read-only;
 		};
+
 		factory: partition@40000 {
 			label = "factory";
 			reg = <0x40000 0x10000>;
 			read-only;
 		};
+
 		partition@50000 {
-			label = "linux";
+			label = "firmware";
 			reg = <0x50000 0x3b0000>;
-		};
-	};
-
-	ethernet@400000 {
-		status = "okay";
-		mtd-mac-address = <&factory 0x4>;
-
-                port@0 {
-			ralink,fixed-link = <1000 1 1 1>;
 		};
 	};
 
 	rtl8366s {
 		compatible = "realtek,rtl8366s";
-		gpio-sda = <&gpio0 1 0>;
-		gpio-sck = <&gpio0 2 0>;
+		gpio-sda = <&gpio0 1 GPIO_ACTIVE_HIGH>;
+		gpio-sck = <&gpio0 2 GPIO_ACTIVE_HIGH>;
 	};
 
 	gpio-keys-polled {
@@ -71,15 +54,17 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 		poll-interval = <100>;
+
 		wps {
 			label = "wps";
-			gpios = <&gpio0 0 0>;
-			linux,code = <0x211>;
+			gpios = <&gpio0 0 GPIO_ACTIVE_HIGH>;
+			linux,code = <KEY_WPS_BUTTON>;
 		};
+
 		reset {
 			label = "reset";
-			gpios = <&gpio0 12 0>;
-			linux,code = <0x198>;
+			gpios = <&gpio0 12 GPIO_ACTIVE_HIGH>;
+			linux,code = <KEY_RESTART>;
 		};
 	};
 
@@ -88,7 +73,42 @@
 
 		power {
 			label = "rt-n15:blue:power";
-			gpios = <&gpio0 11 1>;
+			gpios = <&gpio0 11 GPIO_ACTIVE_LOW>;
 		};
 	};
+};
+
+&gpio0 {
+	status = "okay";
+};
+
+&pinctrl {
+	state_default: pinctrl0 {
+		gpio {
+			ralink,group = "i2c", "uartlite", "mdio";
+			ralink,function = "gpio";
+		};
+	};
+};
+
+&ethernet {
+	status = "okay";
+	mtd-mac-address = <&factory 0x4>;
+
+	port@0 {
+		mediatek,fixed-link = <1000 1 1 1>;
+	};
+
+	mdio-bus {
+		status = "okay";
+
+		phy0: ethernet-phy@0 {
+			phy-mode = "mii";
+			reg = <0>;
+		};
+	};
+};
+
+&wmac {
+	ralink,mtd-eeprom = <&factory 0>;
 };

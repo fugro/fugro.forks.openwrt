@@ -3,9 +3,10 @@
  *
  * swconfig interface based on ar8216.c
  *
- * Copyright (c) 2008 Felix Fietkau <nbd@openwrt.org>
+ * Copyright (c) 2008 Felix Fietkau <nbd@nbd.name>
  * VLAN support Copyright (c) 2010, 2011 Peter Lebbing <peter@digitalbrains.com>
  * Copyright (c) 2013 Hauke Mehrtens <hauke@hauke-m.de>
+ * Copyright (c) 2014 Matti Laakso <malaakso@elisanet.fi>
  *
  * This program is free software; you can redistribute  it and/or modify it
  * under  the terms of the GNU General Public License v2 as published by the
@@ -54,6 +55,11 @@ static const char * const adm6996_model_name[] =
 	"ADM6996L"
 };
 
+struct adm6996_mib_desc {
+	unsigned int offset;
+	const char *name;
+};
+
 struct adm6996_priv {
 	struct switch_dev dev;
 	void *priv;
@@ -61,7 +67,6 @@ struct adm6996_priv {
 	u8 eecs;
 	u8 eesk;
 	u8 eedi;
-	u8 eerc;
 
 	enum adm6996_model model;
 
@@ -78,6 +83,9 @@ struct adm6996_priv {
 	u16 vlan_id[ADM_NUM_VLANS];
 	u8 vlan_table[ADM_NUM_VLANS];	/* bitmap, 1 = port is member */
 	u8 vlan_tagged[ADM_NUM_VLANS];	/* bitmap, 1 = tagged member */
+	
+	struct mutex mib_lock;
+	char buf[2048];
 
 	struct mutex reg_mutex;
 
@@ -88,6 +96,24 @@ struct adm6996_priv {
 
 #define to_adm(_dev) container_of(_dev, struct adm6996_priv, dev)
 #define phy_to_adm(_phy) ((struct adm6996_priv *) (_phy)->priv)
+
+#define MIB_DESC(_o, _n)	\
+	{			\
+		.offset = (_o),	\
+		.name = (_n),	\
+	}
+
+static const struct adm6996_mib_desc adm6996_mibs[] = {
+	MIB_DESC(ADM_CL0, "RxPacket"),
+	MIB_DESC(ADM_CL6, "RxByte"),
+	MIB_DESC(ADM_CL12, "TxPacket"),
+	MIB_DESC(ADM_CL18, "TxByte"),
+	MIB_DESC(ADM_CL24, "Collision"),
+	MIB_DESC(ADM_CL30, "Error"),
+};
+
+#define ADM6996_MIB_RXB_ID	1
+#define ADM6996_MIB_TXB_ID	3
 
 static inline u16
 r16(struct adm6996_priv *priv, enum admreg reg)
@@ -263,7 +289,7 @@ static u16
 adm6996_read_mii_reg(struct adm6996_priv *priv, enum admreg reg)
 {
 	struct phy_device *phydev = priv->priv;
-	struct mii_bus *bus = phydev->bus;
+	struct mii_bus *bus = phydev->mdio.bus;
 
 	return bus->read(bus, PHYADDR(reg));
 }
@@ -272,7 +298,7 @@ static void
 adm6996_write_mii_reg(struct adm6996_priv *priv, enum admreg reg, u16 val)
 {
 	struct phy_device *phydev = priv->priv;
-	struct mii_bus *bus = phydev->bus;
+	struct mii_bus *bus = phydev->mdio.bus;
 
 	bus->write(bus, PHYADDR(reg), val);
 }
@@ -773,6 +799,126 @@ adm6996_reset_switch(struct switch_dev *dev)
 	return 0;
 }
 
+static int
+adm6996_get_port_link(struct switch_dev *dev, int port,
+		struct switch_port_link *link)
+{
+	struct adm6996_priv *priv = to_adm(dev);
+	
+	u16 reg = 0;
+	
+	if (port >= ADM_NUM_PORTS)
+		return -EINVAL;
+	
+	switch (port) {
+	case 0:
+		reg = r16(priv, ADM_PS0);
+		break;
+	case 1:
+		reg = r16(priv, ADM_PS0);
+		reg = reg >> 8;
+		break;
+	case 2:
+		reg = r16(priv, ADM_PS1);
+		break;
+	case 3:
+		reg = r16(priv, ADM_PS1);
+		reg = reg >> 8;
+		break;
+	case 4:
+		reg = r16(priv, ADM_PS1);
+		reg = reg >> 12;
+		break;
+	case 5:
+		reg = r16(priv, ADM_PS2);
+		/* Bits 0, 1, 3 and 4. */
+		reg = (reg & 3) | ((reg & 24) >> 1);
+		break;
+	default:
+		return -EINVAL;
+	}
+	
+	link->link = reg & ADM_PS_LS;
+	if (!link->link)
+		return 0;
+	link->aneg = true;
+	link->duplex = reg & ADM_PS_DS;
+	link->tx_flow = reg & ADM_PS_FCS;
+	link->rx_flow = reg & ADM_PS_FCS;
+	if (reg & ADM_PS_SS)
+		link->speed = SWITCH_PORT_SPEED_100;
+	else
+		link->speed = SWITCH_PORT_SPEED_10;
+
+	return 0;
+}
+
+static int
+adm6996_sw_get_port_mib(struct switch_dev *dev,
+		       const struct switch_attr *attr,
+		       struct switch_val *val)
+{
+	struct adm6996_priv *priv = to_adm(dev);
+	int port;
+	char *buf = priv->buf;
+	int i, len = 0;
+	u32 reg = 0;
+
+	port = val->port_vlan;
+	if (port >= ADM_NUM_PORTS)
+		return -EINVAL;
+
+	mutex_lock(&priv->mib_lock);
+
+	len += snprintf(buf + len, sizeof(priv->buf) - len,
+			"Port %d MIB counters\n",
+			port);
+
+	for (i = 0; i < ARRAY_SIZE(adm6996_mibs); i++) {
+		reg = r16(priv, adm6996_mibs[i].offset + ADM_OFFSET_PORT(port));
+		reg += r16(priv, adm6996_mibs[i].offset + ADM_OFFSET_PORT(port) + 1) << 16;
+		len += snprintf(buf + len, sizeof(priv->buf) - len,
+				"%-12s: %u\n",
+				adm6996_mibs[i].name,
+				reg);
+	}
+
+	mutex_unlock(&priv->mib_lock);
+
+	val->value.s = buf;
+	val->len = len;
+
+	return 0;
+}
+
+static int
+adm6996_get_port_stats(struct switch_dev *dev, int port,
+			struct switch_port_stats *stats)
+{
+	struct adm6996_priv *priv = to_adm(dev);
+	int id;
+	u32 reg = 0;
+
+	if (port >= ADM_NUM_PORTS)
+		return -EINVAL;
+
+	mutex_lock(&priv->mib_lock);
+
+	id = ADM6996_MIB_TXB_ID;
+	reg = r16(priv, adm6996_mibs[id].offset + ADM_OFFSET_PORT(port));
+	reg += r16(priv, adm6996_mibs[id].offset + ADM_OFFSET_PORT(port) + 1) << 16;
+	stats->tx_bytes = reg;
+
+	id = ADM6996_MIB_RXB_ID;
+	reg = r16(priv, adm6996_mibs[id].offset + ADM_OFFSET_PORT(port));
+	reg += r16(priv, adm6996_mibs[id].offset + ADM_OFFSET_PORT(port) + 1) << 16;
+	stats->rx_bytes = reg;
+
+	mutex_unlock(&priv->mib_lock);
+
+	return 0;
+}
+
 static struct switch_attr adm6996_globals[] = {
 	{
 	 .type = SWITCH_TYPE_INT,
@@ -802,6 +948,13 @@ static struct switch_attr adm6996_globals[] = {
 };
 
 static struct switch_attr adm6996_port[] = {
+	{
+	 .type = SWITCH_TYPE_STRING,
+	 .name = "mib",
+	 .description = "Get port's MIB counters",
+	 .set = NULL,
+	 .get = adm6996_sw_get_port_mib,
+	},
 };
 
 static struct switch_attr adm6996_vlan[] = {
@@ -814,7 +967,7 @@ static struct switch_attr adm6996_vlan[] = {
 	 },
 };
 
-static const struct switch_dev_ops adm6996_ops = {
+static struct switch_dev_ops adm6996_ops = {
 	.attr_global = {
 			.attr = adm6996_globals,
 			.n_attr = ARRAY_SIZE(adm6996_globals),
@@ -833,6 +986,8 @@ static const struct switch_dev_ops adm6996_ops = {
 	.set_vlan_ports = adm6996_set_ports,
 	.apply_config = adm6996_hw_apply,
 	.reset_switch = adm6996_reset_switch,
+	.get_port_link = adm6996_get_port_link,
+	.get_port_stats = adm6996_get_port_stats,
 };
 
 static int adm6996_switch_init(struct adm6996_priv *priv, const char *alias, struct net_device *netdev)
@@ -867,6 +1022,13 @@ static int adm6996_switch_init(struct adm6996_priv *priv, const char *alias, str
 	swdev->ops = &adm6996_ops;
 	swdev->alias = alias;
 
+	/* The ADM6996L connected through GPIOs does not support any switch
+	   status calls */
+	if (priv->model == ADM6996L) {
+		adm6996_ops.attr_port.n_attr = 0;
+		adm6996_ops.get_port_link = NULL;
+	}
+
 	pr_info ("%s: %s model PHY found.\n", alias, swdev->name);
 
 	mutex_lock(&priv->reg_mutex);
@@ -888,17 +1050,18 @@ static int adm6996_config_init(struct phy_device *pdev)
 	pdev->supported = ADVERTISED_100baseT_Full;
 	pdev->advertising = ADVERTISED_100baseT_Full;
 
-	if (pdev->addr != 0) {
+	if (pdev->mdio.addr != 0) {
 		pr_info ("%s: PHY overlaps ADM6996, providing fixed PHY 0x%x.\n"
-				, pdev->attached_dev->name, pdev->addr);
+				, pdev->attached_dev->name, pdev->mdio.addr);
 		return 0;
 	}
 
-	priv = devm_kzalloc(&pdev->dev, sizeof(struct adm6996_priv), GFP_KERNEL);
+	priv = devm_kzalloc(&pdev->mdio.dev, sizeof(struct adm6996_priv), GFP_KERNEL);
 	if (!priv)
 		return -ENOMEM;
 
 	mutex_init(&priv->reg_mutex);
+	mutex_init(&priv->mib_lock);
 	priv->priv = pdev;
 	priv->read = adm6996_read_mii_reg;
 	priv->write = adm6996_write_mii_reg;
@@ -913,18 +1076,23 @@ static int adm6996_config_init(struct phy_device *pdev)
 }
 
 /*
- * Warning: phydev->priv is NULL if phydev->addr != 0
+ * Warning: phydev->priv is NULL if phydev->mdio.addr != 0
  */
 static int adm6996_read_status(struct phy_device *phydev)
 {
 	phydev->speed = SPEED_100;
 	phydev->duplex = DUPLEX_FULL;
 	phydev->link = 1;
+
+	phydev->state = PHY_RUNNING;
+	netif_carrier_on(phydev->attached_dev);
+	phydev->adjust_link(phydev->attached_dev);
+
 	return 0;
 }
 
 /*
- * Warning: phydev->priv is NULL if phydev->addr != 0
+ * Warning: phydev->priv is NULL if phydev->mdio.addr != 0
  */
 static int adm6996_config_aneg(struct phy_device *phydev)
 {
@@ -933,11 +1101,11 @@ static int adm6996_config_aneg(struct phy_device *phydev)
 
 static int adm6996_fixup(struct phy_device *dev)
 {
-	struct mii_bus *bus = dev->bus;
+	struct mii_bus *bus = dev->mdio.bus;
 	u16 reg;
 
 	/* Our custom registers are at PHY addresses 0-10. Claim those. */
-	if (dev->addr > 10)
+	if (dev->mdio.addr > 10)
 		return 0;
 
 	/* look for the switch on the bus */
@@ -967,6 +1135,11 @@ static void adm6996_remove(struct phy_device *pdev)
 		unregister_switch(&priv->dev);
 }
 
+static int adm6996_soft_reset(struct phy_device *phydev)
+{
+	/* we don't need an extra reset */
+	return 0;
+}
 
 static struct phy_driver adm6996_phy_driver = {
 	.name		= "Infineon ADM6996",
@@ -978,7 +1151,7 @@ static struct phy_driver adm6996_phy_driver = {
 	.config_init	= &adm6996_config_init,
 	.config_aneg	= &adm6996_config_aneg,
 	.read_status	= &adm6996_read_status,
-	.driver		= { .owner = THIS_MODULE,},
+	.soft_reset	= adm6996_soft_reset,
 };
 
 static int adm6996_gpio_probe(struct platform_device *pdev)
@@ -989,16 +1162,16 @@ static int adm6996_gpio_probe(struct platform_device *pdev)
 
 	if (!pdata)
 		return -EINVAL;
-				  
+
 	priv = devm_kzalloc(&pdev->dev, sizeof(struct adm6996_priv), GFP_KERNEL);
 	if (!priv)
 		return -ENOMEM;
 
 	mutex_init(&priv->reg_mutex);
+	mutex_init(&priv->mib_lock);
 
 	priv->eecs = pdata->eecs;
 	priv->eedi = pdata->eedi;
-	priv->eerc = pdata->eerc;
 	priv->eesk = pdata->eesk;
 
 	priv->model = pdata->model;
@@ -1009,9 +1182,6 @@ static int adm6996_gpio_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 	ret = devm_gpio_request(&pdev->dev, priv->eedi, "adm_eedi");
-	if (ret)
-		return ret;
-	ret = devm_gpio_request(&pdev->dev, priv->eerc, "adm_eerc");
 	if (ret)
 		return ret;
 	ret = devm_gpio_request(&pdev->dev, priv->eesk, "adm_eesk");
@@ -1050,7 +1220,7 @@ static int __init adm6996_init(void)
 	int err;
 
 	phy_register_fixup_for_id(PHY_ANY_ID, adm6996_fixup);
-	err =  phy_driver_register(&adm6996_phy_driver);
+	err = phy_driver_register(&adm6996_phy_driver, THIS_MODULE);
 	if (err)
 		return err;
 

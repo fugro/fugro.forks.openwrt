@@ -48,7 +48,7 @@
 #include <crypto/sha.h>
 #include <crypto/internal/hash.h>
 #include <linux/types.h>
-#include <asm/scatterlist.h>
+#include <linux/scatterlist.h>
 #include <asm/byteorder.h>
 
 #if defined(CONFIG_DANUBE)
@@ -258,6 +258,7 @@ static struct shash_alg ifxdeu_sha1_alg = {
         .base           =       {
                 .cra_name       =       "sha1",
                 .cra_driver_name=       "ifxdeu-sha1",
+                .cra_priority   =       300,
                 .cra_flags      =       CRYPTO_ALG_TYPE_DIGEST,
                 .cra_blocksize  =       SHA1_HMAC_BLOCK_SIZE,
                 .cra_module     =       THIS_MODULE,
@@ -265,11 +266,11 @@ static struct shash_alg ifxdeu_sha1_alg = {
 };
 
 
-/*! \fn int __init ifxdeu_init_sha1 (void)
+/*! \fn int ifxdeu_init_sha1 (void)
  *  \ingroup IFX_SHA1_FUNCTIONS
  *  \brief initialize sha1 driver    
 */                                 
-int __init ifxdeu_init_sha1 (void)
+int ifxdeu_init_sha1 (void)
 {
     int ret = -ENOSYS;
 
@@ -287,11 +288,11 @@ sha1_err:
     return ret;
 }
 
-/*! \fn void __exit ifxdeu_fini_sha1 (void)
+/*! \fn void ifxdeu_fini_sha1 (void)
  *  \ingroup IFX_SHA1_FUNCTIONS
  *  \brief unregister sha1 driver   
 */                                 
-void __exit ifxdeu_fini_sha1 (void)
+void ifxdeu_fini_sha1 (void)
 {
     crypto_unregister_shash(&ifxdeu_sha1_alg);
 

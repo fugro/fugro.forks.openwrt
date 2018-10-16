@@ -1,18 +1,13 @@
-# 
+#
 # Copyright (C) 2006-2007 OpenWrt.org
 #
 # This is free software, licensed under the GNU General Public License v2.
 # See /LICENSE for more information.
 #
 
-# unpacking files with +s may break on some platforms. this typically emits error code 2
-ifneq ($(HOST_OS),Linux)
-  HOST_TAR:=trapret 2 $(TAR)
-else
-  HOST_TAR:=$(TAR)
-endif
+HOST_TAR:=$(TAR)
 TAR_CMD=$(HOST_TAR) -C $(1)/.. $(TAR_OPTIONS)
-UNZIP_CMD=unzip -d $(1)/.. $(DL_DIR)/$(PKG_SOURCE)
+UNZIP_CMD=unzip -q -d $(1)/.. $(DL_DIR)/$(PKG_SOURCE)
 
 ifeq ($(PKG_SOURCE),)
   PKG_UNPACK ?= true

@@ -4,10 +4,8 @@
 
 SUBTARGET:=mt7621
 BOARDNAME:=MT7621 based boards
-ARCH_PACKAGES:=ramips_24kec
-FEATURES+=usb
-CPU_TYPE:=24kec
-CPU_SUBTYPE:=dsp
+FEATURES+=nand ramdisk rtc usb minor
+CPU_TYPE:=24kc
 
 define Target/Description
 	Build firmware images for Ralink MT7621 based boards.

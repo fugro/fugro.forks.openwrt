@@ -9,6 +9,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=resolveip
 PKG_RELEASE:=2
+PKG_LICENSE:=GPL-2.0
 
 include $(INCLUDE_DIR)/package.mk
 
@@ -16,7 +17,7 @@ define Package/resolveip
   SECTION:=utils
   CATEGORY:=Base system
   TITLE:=Simple DNS resolver with configurable timeout
-  MAINTAINER:=Jo-Philipp Wich <jow@openwrt.org>
+  MAINTAINER:=Jo-Philipp Wich <jo@mein.io>
 endef
 
 define Package/resolveip/description
@@ -25,11 +26,6 @@ define Package/resolveip/description
  IP addresses. It supports IPv4 and IPv6 resolving and
  has a configurable timeout to guarantee a certain maximum
  runtime in case of slow or defunct DNS servers.
-endef
-
-define Build/Prepare
-	$(INSTALL_DIR) $(PKG_BUILD_DIR)
-	$(INSTALL_DATA) ./src/resolveip.c $(PKG_BUILD_DIR)/
 endef
 
 define Build/Compile

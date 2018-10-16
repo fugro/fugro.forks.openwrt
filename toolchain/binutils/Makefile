@@ -10,33 +10,36 @@ PKG_NAME:=binutils
 PKG_VERSION:=$(call qstrip,$(CONFIG_BINUTILS_VERSION))
 BIN_VERSION:=$(PKG_VERSION)
 
-ifeq ($(findstring linaro, $(CONFIG_BINUTILS_VERSION)),linaro)
-  PKG_SOURCE_URL:=https://releases.linaro.org/13.12/components/toolchain/binutils-linaro/
-  PKG_REV:=2.24-2013.12
-  PKG_SOURCE:=$(PKG_NAME)-linaro-$(PKG_REV).tar.xz
-  PKG_MD5SUM:=4f0fe947895a260b8386de63b09feb18
-  BINUTILS_DIR:=$(PKG_NAME)-linaro-$(PKG_REV)
-  HOST_BUILD_DIR:=$(BUILD_DIR_TOOLCHAIN)/$(BINUTILS_DIR)
-else
-  PKG_SOURCE_URL:=@GNU/binutils/
-  PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.bz2
+PKG_SOURCE_URL:=@GNU/binutils/
+PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.xz
 
-  ifeq ($(PKG_VERSION),2.20.1)
-    PKG_MD5SUM:=9cdfb9d6ec0578c166d3beae5e15c4e5
-  endif
-  ifeq ($(PKG_VERSION),2.22)
-    PKG_MD5SUM:=ee0f10756c84979622b992a4a61ea3f5
-  endif
-  ifeq ($(PKG_VERSION),2.23.1)
-    PKG_MD5SUM:=33adb18c3048d057ac58d07a3f1adb38
-  endif
+TAR_OPTIONS += --exclude='*.rej'
+
+ifeq ($(PKG_VERSION),2.27)
+  PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.bz2
+  PKG_HASH:=369737ce51587f92466041a97ab7d2358c6d9e1b6490b3940eb09fb0a9a6ac88
+endif
+
+ifeq ($(PKG_VERSION),2.29.1)
+  PKG_HASH:=e7010a46969f9d3e53b650a518663f98a5dde3c3ae21b7d71e5e6803bc36b577
+endif
+
+ifeq ($(PKG_VERSION),2.30)
+  PKG_HASH:=6e46b8aeae2f727a36f0bd9505e405768a72218f1796f0d09757d45209871ae6
+endif
+
+ifneq ($(CONFIG_BINUTILS_VERSION_2_29_ARC),)
+  PKG_REV:=arc-2017.09-release
+  PKG_SOURCE_URL:=https://github.com/foss-for-synopsys-dwc-arc-processors/binutils-gdb/archive/$(PKG_REV)/
+  PKG_SOURCE:=$(PKG_NAME)-$(PKG_REV).tar.gz
+  PKG_HASH:=2ea086fd5521e942926dd6ff6922ce31c29ee7ffc754fca3d06385e0f27600f8
+  BINUTILS_DIR:=$(PKG_NAME)-gdb-$(PKG_REV)
+  HOST_BUILD_DIR:=$(BUILD_DIR_TOOLCHAIN)/$(BINUTILS_DIR)
 endif
 
 HOST_BUILD_PARALLEL:=1
 
 PATCH_DIR:=./patches/$(PKG_VERSION)
-
-REAL_STAGING_DIR_HOST:=$(STAGING_DIR_HOST)
 
 include $(INCLUDE_DIR)/toolchain-build.mk
 
@@ -47,9 +50,13 @@ BINUTILS_CONFIGURE:= \
 		--host=$(GNU_HOST_NAME) \
 		--target=$(REAL_GNU_TARGET_NAME) \
 		--with-sysroot=$(TOOLCHAIN_DIR) \
+		--enable-deterministic-archives \
+		--enable-plugins \
 		--disable-multilib \
 		--disable-werror \
 		--disable-nls \
+		--disable-sim \
+		--disable-gdb \
 		$(GRAPHITE_CONFIGURE) \
 		$(SOFT_FLOAT_CONFIG_OPTION) \
 		$(call qstrip,$(CONFIG_EXTRA_BINUTILS_CONFIG_OPTIONS)) 
@@ -69,8 +76,9 @@ endif
 
 define Host/Prepare
 	$(call Host/Prepare/Default)
-	ln -snf $(PKG_NAME)-$(PKG_VERSION) $(BUILD_DIR_TOOLCHAIN)/$(PKG_NAME)
+	ln -snf $(notdir $(HOST_BUILD_DIR)) $(BUILD_DIR_TOOLCHAIN)/$(PKG_NAME)
 	$(CP) $(SCRIPT_DIR)/config.{guess,sub} $(HOST_BUILD_DIR)/
+	$(SED) 's, " Linaro.*,,' $(HOST_BUILD_DIR)/bfd/version.h
 endef
 
 define Host/Configure
@@ -88,9 +96,18 @@ define Host/Install
 	$(MAKE) -C $(HOST_BUILD_DIR) \
 		prefix=$(TOOLCHAIN_DIR)/initial \
 		install
+	$(MAKE) -C $(HOST_BUILD_DIR) \
+		prefix=$(TOOLCHAIN_DIR) \
+		install
 	$(call FixupLibdir,$(TOOLCHAIN_DIR)/initial)
-	$(CP) $(TOOLCHAIN_DIR)/initial/. $(TOOLCHAIN_DIR)/
-	$(CP) $(TOOLCHAIN_DIR)/bin/$(REAL_GNU_TARGET_NAME)-readelf $(REAL_STAGING_DIR_HOST)/bin/readelf
+	$(RM) $(TOOLCHAIN_DIR)/initial/lib/libiberty.a
+	$(CP) $(TOOLCHAIN_DIR)/bin/$(REAL_GNU_TARGET_NAME)-readelf $(HOST_BUILD_PREFIX)/bin/readelf
+	# ARC gcc requires extlib.
+	# If extlib is not available in "initial" folder
+	# initial gcc will fail to build libc.
+	if [ -d $(TOOLCHAIN_DIR)/extlib ]; then \
+		$(CP) -r $(TOOLCHAIN_DIR)/extlib $(TOOLCHAIN_DIR)/initial/; \
+	fi
 endef
 
 define Host/Clean

@@ -1,8 +1,9 @@
 /*
- * TP-LINK Archer C7/TL-WDR4900 v2 board support
+ * TP-LINK Archer C5/C7/TL-WDR4900 v2 board support
  *
  * Copyright (c) 2013 Gabor Juhos <juhosg@openwrt.org>
  * Copyright (c) 2014 施康成 <tenninjas@tenninjas.ca>
+ * Copyright (c) 2014 Imre Kaloz <kaloz@openwrt.org>
  *
  * Based on the Qualcomm Atheros AP135/AP136 reference board support code
  *   Copyright (c) 2012 Qualcomm Atheros
@@ -50,6 +51,7 @@
 #define ARCHER_C7_GPIO_LED_USB2		19
 
 #define ARCHER_C7_GPIO_BTN_RFKILL	13
+#define ARCHER_C7_V2_GPIO_BTN_RFKILL	23
 #define ARCHER_C7_GPIO_BTN_RESET	16
 
 #define ARCHER_C7_GPIO_USB1_POWER	22
@@ -121,7 +123,25 @@ static struct gpio_keys_button archer_c7_gpio_keys[] __initdata = {
 	},
 };
 
-static const struct ar8327_led_info archer_c7_leds_ar8327[] __initconst = {
+static struct gpio_keys_button archer_c7_v2_gpio_keys[] __initdata = {
+	{
+		.desc		= "Reset button",
+		.type		= EV_KEY,
+		.code		= KEY_WPS_BUTTON,
+		.debounce_interval = ARCHER_C7_KEYS_DEBOUNCE_INTERVAL,
+		.gpio		= ARCHER_C7_GPIO_BTN_RESET,
+		.active_low	= 1,
+	},
+	{
+		.desc		= "RFKILL switch",
+		.type		= EV_SW,
+		.code		= KEY_RFKILL,
+		.debounce_interval = ARCHER_C7_KEYS_DEBOUNCE_INTERVAL,
+		.gpio		= ARCHER_C7_V2_GPIO_BTN_RFKILL,
+	},
+};
+
+static const struct ar8327_led_info archer_c7_leds_ar8327[] = {
 	AR8327_LED_INFO(PHY0_0, HW, "tp-link:blue:wan"),
 	AR8327_LED_INFO(PHY1_0, HW, "tp-link:blue:lan1"),
 	AR8327_LED_INFO(PHY2_0, HW, "tp-link:blue:lan2"),
@@ -182,23 +202,6 @@ static struct mdio_board_info archer_c7_mdio0_info[] = {
 	},
 };
 
-static void __init archer_c7_gmac_setup(void)
-{
-	void __iomem *base;
-	u32 t;
-
-	base = ioremap(QCA955X_GMAC_BASE, QCA955X_GMAC_SIZE);
-
-	t = __raw_readl(base + QCA955X_GMAC_REG_ETH_CFG);
-
-	t &= ~(QCA955X_ETH_CFG_RGMII_EN | QCA955X_ETH_CFG_GE0_SGMII);
-	t |= QCA955X_ETH_CFG_RGMII_EN;
-
-	__raw_writel(t, base + QCA955X_GMAC_REG_ETH_CFG);
-
-	iounmap(base);
-}
-
 static void __init common_setup(bool pcie_slot)
 {
 	u8 *mac = (u8 *) KSEG1ADDR(0x1f01fc00);
@@ -208,9 +211,6 @@ static void __init common_setup(bool pcie_slot)
 	ath79_register_m25p80(&archer_c7_flash_data);
 	ath79_register_leds_gpio(-1, ARRAY_SIZE(archer_c7_leds_gpio),
 				 archer_c7_leds_gpio);
-	ath79_register_gpio_keys_polled(-1, ARCHER_C7_KEYS_POLL_INTERVAL,
-					ARRAY_SIZE(archer_c7_gpio_keys),
-					archer_c7_gpio_keys);
 
 	ath79_init_mac(tmpmac, mac, -1);
 	ath79_register_wmac(art + ARCHER_C7_WMAC_CALDATA_OFFSET, tmpmac);
@@ -227,7 +227,7 @@ static void __init common_setup(bool pcie_slot)
 				    ARRAY_SIZE(archer_c7_mdio0_info));
 	ath79_register_mdio(0, 0x0);
 
-	archer_c7_gmac_setup();
+	ath79_setup_qca955x_eth_cfg(QCA955X_ETH_CFG_RGMII_EN);
 
 	/* GMAC0 is connected to the RMGII interface */
 	ath79_eth0_data.phy_if_mode = PHY_INTERFACE_MODE_RGMII;
@@ -256,16 +256,44 @@ static void __init common_setup(bool pcie_slot)
 	ath79_register_usb();
 }
 
+static void __init archer_c5_setup(void)
+{
+	ath79_register_gpio_keys_polled(-1, ARCHER_C7_KEYS_POLL_INTERVAL,
+					ARRAY_SIZE(archer_c7_gpio_keys),
+					archer_c7_gpio_keys);
+	common_setup(true);
+}
+
+MIPS_MACHINE(ATH79_MACH_ARCHER_C5, "ARCHER-C5", "TP-LINK Archer C5",
+	     archer_c5_setup);
+
 static void __init archer_c7_setup(void)
 {
+	ath79_register_gpio_keys_polled(-1, ARCHER_C7_KEYS_POLL_INTERVAL,
+					ARRAY_SIZE(archer_c7_gpio_keys),
+					archer_c7_gpio_keys);
 	common_setup(true);
 }
 
 MIPS_MACHINE(ATH79_MACH_ARCHER_C7, "ARCHER-C7", "TP-LINK Archer C7",
 	     archer_c7_setup);
 
+static void __init archer_c7_v2_setup(void)
+{
+	ath79_register_gpio_keys_polled(-1, ARCHER_C7_KEYS_POLL_INTERVAL,
+					ARRAY_SIZE(archer_c7_v2_gpio_keys),
+					archer_c7_v2_gpio_keys);
+	common_setup(true);
+}
+
+MIPS_MACHINE(ATH79_MACH_ARCHER_C7_V2, "ARCHER-C7-V2", "TP-LINK Archer C7",
+	     archer_c7_v2_setup);
+
 static void __init tl_wdr4900_v2_setup(void)
 {
+	ath79_register_gpio_keys_polled(-1, ARCHER_C7_KEYS_POLL_INTERVAL,
+					ARRAY_SIZE(archer_c7_gpio_keys),
+					archer_c7_gpio_keys);
 	common_setup(false);
 }
 

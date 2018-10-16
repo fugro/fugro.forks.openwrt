@@ -103,10 +103,11 @@ static struct gpio_keys_button wdr4300_gpio_keys[] __initdata = {
 		.code		= KEY_RFKILL,
 		.debounce_interval = WDR4300_KEYS_DEBOUNCE_INTERVAL,
 		.gpio		= WDR4300_GPIO_BTN_RFKILL,
+		.active_low	= 1,
 	},
 };
 
-static const struct ar8327_led_info wdr4300_leds_ar8327[] __initconst = {
+static const struct ar8327_led_info wdr4300_leds_ar8327[] = {
 	AR8327_LED_INFO(PHY0_0, HW, "tp-link:blue:wan"),
 	AR8327_LED_INFO(PHY1_0, HW, "tp-link:blue:lan1"),
 	AR8327_LED_INFO(PHY2_0, HW, "tp-link:blue:lan2"),

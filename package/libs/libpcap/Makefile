@@ -8,17 +8,20 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=libpcap
-PKG_VERSION:=1.5.3
+PKG_VERSION:=1.8.1
 PKG_RELEASE:=1
 
 PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
-PKG_SOURCE_URL:=http://www.tcpdump.org/release/
-PKG_MD5SUM:=7e7321fb3aff2f2bb05c8229f3795d4a
+PKG_SOURCE_URL:=http://www.us.tcpdump.org/release/ \
+        http://www.tcpdump.org/release/
+PKG_HASH:=673dbc69fdc3f5a86fb5759ab19899039a8e5e6c631749e48dcd9c6f0c83541e
+PKG_FIXUP:=patch-libtool
 
-PKG_MAINTAINER:=Felix Fietkau <nbd@openwrt.org>
+PKG_MAINTAINER:=Felix Fietkau <nbd@nbd.name>
 
 PKG_INSTALL:=1
 PKG_BUILD_PARALLEL:=1
+PKG_LICENSE:=BSD-3-Clause
 
 include $(INCLUDE_DIR)/package.mk
 include $(INCLUDE_DIR)/kernel.mk
@@ -46,15 +49,16 @@ TARGET_CFLAGS += \
 
 CONFIGURE_VARS += \
 	ac_cv_linux_vers=$(LINUX_VERSION) \
-	ac_cv_header_libusb_1_0_libusb_h=no \
-	ac_cv_netfilter_can_compile=no
+	ac_cv_header_libusb_1_0_libusb_h=no
 
+ifeq ($(CONFIG_PCAP_HAS_NETFILTER),)
+CONFIGURE_VARS += \
+	ac_cv_netfilter_can_compile=no
+endif
 
 CONFIGURE_ARGS += \
 	--enable-shared \
-	--enable-static \
 	--disable-yydebug \
-	--with-build-cc="$(HOSTCC)" \
 	--with-pcap=linux \
 	--without-septel \
 	--without-dag \

@@ -26,7 +26,7 @@ do_led_update_sysfs()
 
 		new_sysfs=$(echo ${sysfs} | sed "s/${old}/${new}/")
 
-		[ "${new_sysfs}" == "${sysfs}" ] && continue
+		[ "$new_sysfs" = "$sysfs" ] && continue
 
 		uci set system.${cfg}.sysfs="${new_sysfs}"
 		LED_OPTIONS_CHANGED=1
@@ -41,40 +41,41 @@ migrate_leds()
 	config_foreach do_led_update_sysfs led "$@"
 }
 
-. /lib/ar71xx.sh
-
-board=$(ar71xx_board_name)
+board=$(board_name)
 
 case "$board" in
+dhp-1565-a1|\
 dir-825-c1|\
 dir-835-a1)
 	migrate_leds ":orange:=:amber:" ":wifi_bgn=:wlan2g"
 	;;
-
-wndap360)
-	migrate_leds "wndap360:=netgear:"
+dr344)
+	migrate_leds ":red:=:green:" ":yellow:=:green:"
 	;;
-
-wndr3700)
-	migrate_leds "wndr3700:=netgear:"
+gl-ar150)
+	migrate_leds "gl-ar150:wlan=gl-ar150:orange:wlan" "gl-ar150:lan=gl-ar150:green:lan" "gl-ar150:wan=gl-ar150:green:wan"
 	;;
-
-wnr2000)
-	migrate_leds "wnr2000:=netgear:"
+oolite-v1)
+	migrate_leds "oolite:=${board}"
 	;;
-
+wndap360|\
+wndr3700|\
+wnr2000|\
 wnr2200)
-	migrate_leds "wnr2200:=netgear:"
+	migrate_leds "${board}:=netgear:"
 	;;
-
+wndr3700v4|\
+wndr4300)
+	migrate_leds ":orange:=:amber:"
+	;;
+wnr1000-v2)
+	migrate_leds "wnr1000v2:=netgear:"
+	;;
 wnr612-v2)
 	migrate_leds "wnr612v2:=netgear:"
 	;;
-
-*)
-	;;
 esac
 
-[ "$LED_OPTIONS_CHANGED" == "1" ] && uci commit system
+[ "$LED_OPTIONS_CHANGED" = "1" ] && uci commit system
 
 exit 0

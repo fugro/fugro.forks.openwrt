@@ -1,7 +1,7 @@
 /*
  * switch.h: Switch configuration API
  *
- * Copyright (C) 2008 Felix Fietkau <nbd@openwrt.org>
+ * Copyright (C) 2008 Felix Fietkau <nbd@nbd.name>
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -54,11 +54,13 @@ struct switch_port_link {
 	bool tx_flow;
 	bool rx_flow;
 	enum switch_port_speed speed;
+	/* in ethtool adv_t format */
+	u32 eee;
 };
 
 struct switch_port_stats {
-	unsigned long tx_bytes;
-	unsigned long rx_bytes;
+	unsigned long long tx_bytes;
+	unsigned long long rx_bytes;
 };
 
 /**
@@ -93,8 +95,13 @@ struct switch_dev_ops {
 
 	int (*get_port_link)(struct switch_dev *dev, int port,
 			     struct switch_port_link *link);
+	int (*set_port_link)(struct switch_dev *dev, int port,
+			     struct switch_port_link *link);
 	int (*get_port_stats)(struct switch_dev *dev, int port,
 			      struct switch_port_stats *stats);
+
+	int (*phy_read16)(struct switch_dev *dev, int addr, u8 reg, u16 *value);
+	int (*phy_write16)(struct switch_dev *dev, int addr, u8 reg, u16 value);
 };
 
 struct switch_dev {
@@ -108,18 +115,19 @@ struct switch_dev {
 	const char *alias;
 	struct net_device *netdev;
 
-	int ports;
-	int vlans;
-	int cpu_port;
+	unsigned int ports;
+	unsigned int vlans;
+	unsigned int cpu_port;
 
 	/* the following fields are internal for swconfig */
-	int id;
+	unsigned int id;
 	struct list_head dev_list;
 	unsigned long def_global, def_port, def_vlan;
 
 	struct mutex sw_mutex;
 	struct switch_port *portbuf;
 	struct switch_portmap *portmap;
+	struct switch_port_link linkbuf;
 
 	char buf[128];
 
@@ -140,12 +148,13 @@ struct switch_portmap {
 
 struct switch_val {
 	const struct switch_attr *attr;
-	int port_vlan;
-	int len;
+	unsigned int port_vlan;
+	unsigned int len;
 	union {
 		const char *s;
 		u32 i;
 		struct switch_port *ports;
+		struct switch_port_link *link;
 	} value;
 };
 
@@ -163,5 +172,8 @@ struct switch_attr {
 	int ofs;
 	int max;
 };
+
+int switch_generic_set_link(struct switch_dev *dev, int port,
+			    struct switch_port_link *link);
 
 #endif /* _LINUX_SWITCH_H */

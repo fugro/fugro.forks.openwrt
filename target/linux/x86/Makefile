@@ -9,15 +9,17 @@ include $(TOPDIR)/rules.mk
 ARCH:=i386
 BOARD:=x86
 BOARDNAME:=x86
-FEATURES:=squashfs ext4 vdi vmdk pcmcia targz
-SUBTARGETS=generic olpc xen_domu ep80579 net5501 kvm_guest geos alix2 thincan \
-	   rdc
+FEATURES:=squashfs ext4 vdi vmdk pcmcia targz fpu
+SUBTARGETS:=generic legacy geode 64
+MAINTAINER:=Felix Fietkau <nbd@nbd.name>
 
-LINUX_VERSION:=3.3.8
+KERNEL_PATCHVER:=4.14
 
 KERNELNAME:=bzImage
 
 include $(INCLUDE_DIR)/target.mk
+
+DEFAULT_PACKAGES += partx-utils mkf2fs e2fsprogs
 
 $(eval $(call BuildTarget))
 

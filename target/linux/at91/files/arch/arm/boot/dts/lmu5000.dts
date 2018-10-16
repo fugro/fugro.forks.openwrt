@@ -6,7 +6,7 @@
  * Licensed under GPLv2.
  */
 /dts-v1/;
-/include/ "at91sam9g20.dtsi"
+#include "at91sam9g20.dtsi"
 
 / {
 	model = "CalAmp LMU5000";
@@ -117,7 +117,7 @@
 			};
 		};
 
-		usb0: ohci@00500000 {
+		usb0: ohci@500000 {
 			num-ports = <2>;
 			status = "okay";
 		};

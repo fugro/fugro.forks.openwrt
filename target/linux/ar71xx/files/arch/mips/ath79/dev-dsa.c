@@ -29,7 +29,7 @@ void __init ath79_register_dsa(struct device *netdev,
 
 	d->netdev = netdev;
 	for (i = 0; i < d->nr_chips; i++)
-		d->chip[i].mii_bus = miidev;
+		d->chip[i].host_dev = miidev;
 
 	ar71xx_dsa_switch_device.dev.platform_data = d;
 	platform_device_register(&ar71xx_dsa_switch_device);

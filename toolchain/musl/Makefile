@@ -24,7 +24,8 @@ endef
 
 define Host/Install
 	$(call Host/SetToolchainInfo)
-	$(MAKE) $(MUSL_MAKEOPTS) DESTDIR="$(TOOLCHAIN_DIR)/" install
+	+$(MAKE) $(HOST_JOBS) $(MUSL_MAKEOPTS) DESTDIR="$(TOOLCHAIN_DIR)/" install
+	$(CP) ./include $(TOOLCHAIN_DIR)/
 endef
 
 $(eval $(call HostBuild))

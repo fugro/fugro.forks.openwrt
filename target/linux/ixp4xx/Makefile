@@ -10,14 +10,15 @@ ARCH:=armeb
 BOARD:=ixp4xx
 BOARDNAME:=Intel IXP4xx
 FEATURES:=squashfs
-MAINTAINER:=Imre Kaloz <kaloz@openwrt.org>
-SUBTARGETS=generic harddisk
+MAINTAINER:=Ted Hess <thess@kitschensync.net>, \
+	    Imre Kaloz <kaloz@openwrt.org>
+SUBTARGETS:=generic harddisk
 
-LINUX_VERSION:=3.10.34
+KERNEL_PATCHVER:=4.9
 
 include $(INCLUDE_DIR)/target.mk
 
 DEFAULT_PACKAGES += ixp4xx-microcode fconfig
-KERNELNAME:="zImage"
+KERNELNAME:=zImage
 
 $(eval $(call BuildTarget))
