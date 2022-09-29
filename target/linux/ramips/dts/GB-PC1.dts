@@ -18,6 +18,12 @@
 		bootargs = "console=ttyS0,57600";
 	};
 
+	palmbus: palmbus@1E000000 {
+		i2c@900 {
+			status = "okay";
+		};
+	};
+
 	gpio-keys-polled {
 		compatible = "gpio-keys-polled";
 		#address-cells = <1>;
@@ -112,7 +118,7 @@
 &pinctrl {
 	state_default: pinctrl0 {
 		gpio {
-			ralink,group = "jtag", "rgmii2", "uart3", "wdt";
+			ralink,group = "wdt", "rgmii2", "uart3";
 			ralink,function = "gpio";
 		};
 	};

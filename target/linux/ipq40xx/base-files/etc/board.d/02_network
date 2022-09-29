@@ -44,8 +44,7 @@ openmesh,a62)
 	;;
 meraki,mr33 |\
 netgear,ex6100v2 |\
-netgear,ex6150v2 |\
-zyxel,wre6606)
+netgear,ex6150v2)
 	ucidef_set_interface_lan "eth0"
 	;;
 *)
