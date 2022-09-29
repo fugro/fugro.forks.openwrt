@@ -1,7 +1,8 @@
 #!/bin/sh /etc/rc.common
 # Copyright (C) 2012 OpenWrt.org
 
-START=97
+# needs to start before the atm layer which starts at 50
+START=48
 USE_PROCD=1
 
 EXTRA_COMMANDS="status lucistat"

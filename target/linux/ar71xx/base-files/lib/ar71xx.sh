@@ -371,20 +371,12 @@ tplink_pharos_get_model_string() {
 }
 
 tplink_pharos_board_detect() {
-	local model_string="$1"
+	local model_string="$(tplink_pharos_get_model_string | tr -d '\r')"
 	local oIFS="$IFS"; IFS=":"; set -- $model_string; IFS="$oIFS"
 
 	local model="${1%%\(*}"
 
 	AR71XX_MODEL="TP-Link $model v$2"
-}
-
-tplink_pharos_v2_get_model_string() {
-	local part
-	part=$(find_mtd_part 'product-info')
-	[ -z "$part" ] && return 1
-
-	dd if=$part bs=1 skip=4360 count=64 2>/dev/null | tr -d '\r\0' | head -n 1
 }
 
 ar71xx_board_detect() {
@@ -484,9 +476,6 @@ ar71xx_board_detect() {
 	*"Archer C7 v4")
 		name="archer-c7-v4"
 		;;
-	*"Archer C7 v5")
-		name="archer-c7-v5"
-		;;
 	*"Archer C58 v1")
 		name="archer-c58-v1"
 		;;
@@ -571,18 +560,14 @@ ar71xx_board_detect() {
 		;;
 	*"CPE210/220")
 		name="cpe210"
-		tplink_pharos_board_detect "$(tplink_pharos_get_model_string | tr -d '\r')"
-		;;
-	*"CPE210 v2")
-		name="cpe210-v2"
-		tplink_pharos_board_detect "$(tplink_pharos_v2_get_model_string)"
+		tplink_pharos_board_detect
 		;;
 	*"CPE505N")
 		name="cpe505n"
 		;;
 	*"CPE510/520")
 		name="cpe510"
-		tplink_pharos_board_detect "$(tplink_pharos_get_model_string | tr -d '\r')"
+		tplink_pharos_board_detect
 		;;
 	*"CPE830")
 		name="cpe830"
@@ -675,24 +660,15 @@ ar71xx_board_detect() {
 	*"E2100L")
 		name="e2100l"
 		;;
-	*"E558 v2")
-		name="e558-v2"
-		;;
 	*"E600G v2")
 		name="e600g-v2"
 		;;
 	*"E600GAC v2")
 		name="e600gac-v2"
 		;;
-	*"E750A v4")
-		name="e750a-v4"
-		;;
-	*"E750G v8")
-		name="e750g-v8"
-		;;
 	*"EAP120")
 		name="eap120"
-		tplink_pharos_board_detect "$(tplink_pharos_get_model_string | tr -d '\r')"
+		tplink_pharos_board_detect
 		;;
 	*"EAP300 v2")
 		name="eap300v2"
@@ -738,9 +714,6 @@ ar71xx_board_detect() {
 		;;
 	*"FRITZ!WLAN Repeater 300E")
 		name="fritz300e"
-		;;
-	*"FRITZ!WLAN Repeater 450E")
-		name="fritz450e"
 		;;
 	*"GL-AR150")
 		name="gl-ar150"
@@ -791,9 +764,6 @@ ar71xx_board_detect() {
 		;;
 	*"JWAP230")
 		name="jwap230"
-		;;
-	*"Koala")
-		name="koala"
 		;;
 	*"LAN Turtle")
 		name="lan-turtle"
@@ -1355,9 +1325,6 @@ ar71xx_board_detect() {
 	*"TL-WR942N v1")
 		name="tl-wr942n-v1"
 		;;
-	*"TS-D084")
-		name="ts-d084"
-		;;
 	*"Tube2H")
 		name="tube2h"
 		;;
@@ -1385,11 +1352,11 @@ ar71xx_board_detect() {
 		;;
 	*"WBS210")
 		name="wbs210"
-		tplink_pharos_board_detect "$(tplink_pharos_get_model_string | tr -d '\r')"
+		tplink_pharos_board_detect
 		;;
 	*"WBS510")
 		name="wbs510"
-		tplink_pharos_board_detect "$(tplink_pharos_get_model_string | tr -d '\r')"
+		tplink_pharos_board_detect
 		;;
 	"WeIO"*)
 		name="weio"
