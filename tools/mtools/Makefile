@@ -7,16 +7,17 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=mtools
-PKG_VERSION:=4.0.18
+PKG_VERSION:=4.0.38
 
-PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
+PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.bz2
 PKG_SOURCE_URL:=@GNU/$(PKG_NAME)
-PKG_HASH:=30d408d039b4cedcd04fbf824c89b0ff85dcbb6f71f13d2d8d65abb3f58cacc3
-PKG_CAT:=zcat
+PKG_HASH:=7b94485f486e7df08cca68b00a164a13cd38f4c63cb8684d188759ee7bc5e729
 
 HOST_BUILD_PARALLEL:=1
 
 include $(INCLUDE_DIR)/host-build.mk
+
+HOST_CONFIGURE_ARGS += --without-x
 
 HOST_CONFIGURE_VARS += \
 	ac_cv_header_iconv_h=no

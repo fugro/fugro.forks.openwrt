@@ -8,13 +8,13 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=ppfe
-PKG_SOURCE_DATE:=2017-12-05
-PKG_RELEASE:=1
+PKG_VERSION:=21.08
+PKG_RELEASE:=$(AUTORELEASE)
 
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://github.com/NXP/qoriq-engine-pfe-bin.git
-PKG_SOURCE_VERSION:=848002fe4e0e3efb8d13a813e5c123bbc87aa95b
-PKG_MIRROR_HASH:=b6867be2f5826e807db15256996e11303ca7bbe06ac18448cbf68827d9a59ae2
+PKG_SOURCE_VERSION:=LSDK-21.08
+PKG_MIRROR_HASH:=ba524b8a56c66cf8e7ebb8e742b0d6b66f9177b6fa821c405a09b6c8919e3db0
 
 PKG_FLAGS:=nonshared
 
@@ -26,8 +26,8 @@ STRIP:=:
 define Package/layerscape-ppfe
   SECTION:=firmware
   CATEGORY:=Firmware
-  DEPENDS:=@TARGET_layerscape
   TITLE:=NXP Layerscape PPFE firmware
+  DEPENDS:=@TARGET_layerscape
   CONFIG_FW:=ls1012a/u-boot/pfe_fw_sbl.itb
   CONFIG_BIN1:=ls1012a/slow_path/ppfe_class_ls1012a.elf
   CONFIG_BIN2:=ls1012a/slow_path/ppfe_tmu_ls1012a.elf

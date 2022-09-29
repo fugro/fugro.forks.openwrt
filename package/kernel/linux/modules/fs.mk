@@ -49,8 +49,11 @@ $(eval $(call KernelPackage,fs-afs))
 define KernelPackage/fs-autofs4
   SUBMENU:=$(FS_MENU)
   TITLE:=AUTOFS4 filesystem support
-  KCONFIG:=CONFIG_AUTOFS4_FS
-  FILES:=$(LINUX_DIR)/fs/autofs4/autofs4.ko
+  KCONFIG:= \
+	CONFIG_AUTOFS4_FS \
+	CONFIG_AUTOFS_FS
+  FILES:= \
+	$(LINUX_DIR)/fs/autofs/autofs4.ko
   AUTOLOAD:=$(call AutoLoad,30,autofs4)
 endef
 
@@ -64,10 +67,9 @@ $(eval $(call KernelPackage,fs-autofs4))
 define KernelPackage/fs-btrfs
   SUBMENU:=$(FS_MENU)
   TITLE:=BTRFS filesystem support
-  DEPENDS:=+kmod-lib-crc32c +kmod-lib-lzo +kmod-lib-zlib-inflate +kmod-lib-zlib-deflate +kmod-lib-raid6 +kmod-lib-xor +LINUX_4_14:kmod-lib-zstd
+  DEPENDS:=+kmod-lib-crc32c +kmod-lib-lzo +kmod-lib-zlib-inflate +kmod-lib-zlib-deflate +kmod-lib-raid6 +kmod-lib-xor +kmod-lib-zstd
   KCONFIG:=\
 	CONFIG_BTRFS_FS \
-	CONFIG_BTRFS_FS_POSIX_ACL=n \
 	CONFIG_BTRFS_FS_CHECK_INTEGRITY=n
   FILES:=\
 	$(LINUX_DIR)/fs/btrfs/btrfs.ko
@@ -86,20 +88,23 @@ define KernelPackage/fs-cifs
   TITLE:=CIFS support
   KCONFIG:= \
 	CONFIG_CIFS \
-	CONFIG_CIFS_XATTR=y \
 	CONFIG_CIFS_DFS_UPCALL=n \
-	CONFIG_CIFS_UPCALL=n \
-	CONFIG_CIFS_SMB311=n
+	CONFIG_CIFS_UPCALL=n
   FILES:=$(LINUX_DIR)/fs/cifs/cifs.ko
   AUTOLOAD:=$(call AutoLoad,30,cifs)
   $(call AddDepends/nls)
   DEPENDS+= \
-    +kmod-crypto-hmac \
-    +kmod-crypto-md5 \
     +kmod-crypto-md4 \
-    +kmod-crypto-des \
+    +kmod-crypto-md5 \
+    +kmod-crypto-sha256 \
+    +kmod-crypto-sha512 \
+    +kmod-crypto-cmac \
+    +kmod-crypto-hmac \
+    +kmod-crypto-arc4 \
+    +kmod-crypto-aead \
+    +kmod-crypto-ccm \
     +kmod-crypto-ecb \
-    +kmod-crypto-sha256
+    +kmod-crypto-des
 endef
 
 define KernelPackage/fs-cifs/description
@@ -158,6 +163,26 @@ endef
 $(eval $(call KernelPackage,fs-efivarfs))
 
 
+define KernelPackage/fs-exfat
+  SUBMENU:=$(FS_MENU)
+  TITLE:=exFAT filesystem support
+  KCONFIG:= \
+	CONFIG_EXFAT_FS \
+	CONFIG_EXFAT_DEFAULT_IOCHARSET="utf8"
+  FILES:= \
+	$(LINUX_DIR)/drivers/staging/exfat/exfat.ko@lt5.7 \
+	$(LINUX_DIR)/fs/exfat/exfat.ko@ge5.7
+  AUTOLOAD:=$(call AutoLoad,30,exfat,1)
+  DEPENDS:=+kmod-nls-base
+endef
+
+define KernelPackage/fs-exfat/description
+ Kernel module for exFAT filesystem support
+endef
+
+$(eval $(call KernelPackage,fs-exfat))
+
+
 define KernelPackage/fs-exportfs
   SUBMENU:=$(FS_MENU)
   TITLE:=exportfs kernel server support
@@ -201,14 +226,8 @@ $(eval $(call KernelPackage,fs-ext4))
 define KernelPackage/fs-f2fs
   SUBMENU:=$(FS_MENU)
   TITLE:=F2FS filesystem support
-  DEPENDS:= +kmod-crypto-hash +kmod-crypto-crc32
-  KCONFIG:= \
-	CONFIG_F2FS_FS \
-	CONFIG_F2FS_STAT_FS=y \
-	CONFIG_F2FS_FS_XATTR=y \
-	CONFIG_F2FS_FS_POSIX_ACL=n \
-	CONFIG_F2FS_FS_SECURITY=n \
-	CONFIG_F2FS_CHECK_FS=n
+  DEPENDS:= +kmod-crypto-hash +kmod-crypto-crc32 +kmod-nls-base
+  KCONFIG:=CONFIG_F2FS_FS
   FILES:=$(LINUX_DIR)/fs/f2fs/f2fs.ko
   AUTOLOAD:=$(call AutoLoad,30,f2fs,1)
 endef
@@ -243,6 +262,7 @@ $(eval $(call KernelPackage,fs-fscache))
 define KernelPackage/fs-hfs
   SUBMENU:=$(FS_MENU)
   TITLE:=HFS filesystem support
+  DEPENDS:=+kmod-cdrom
   KCONFIG:=CONFIG_HFS_FS
   FILES:=$(LINUX_DIR)/fs/hfs/hfs.ko
   AUTOLOAD:=$(call AutoLoad,30,hfs)
@@ -259,6 +279,7 @@ $(eval $(call KernelPackage,fs-hfs))
 define KernelPackage/fs-hfsplus
   SUBMENU:=$(FS_MENU)
   TITLE:=HFS+ filesystem support
+  DEPENDS:=+kmod-cdrom
   KCONFIG:=CONFIG_HFSPLUS_FS
   FILES:=$(LINUX_DIR)/fs/hfsplus/hfsplus.ko
   AUTOLOAD:=$(call AutoLoad,30,hfsplus)
@@ -275,7 +296,7 @@ $(eval $(call KernelPackage,fs-hfsplus))
 define KernelPackage/fs-isofs
   SUBMENU:=$(FS_MENU)
   TITLE:=ISO9660 filesystem support
-  DEPENDS:=+kmod-lib-zlib-inflate
+  DEPENDS:=+kmod-lib-zlib-inflate +kmod-cdrom
   KCONFIG:=CONFIG_ISO9660_FS CONFIG_JOLIET=y CONFIG_ZISOFS=n
   FILES:=$(LINUX_DIR)/fs/isofs/isofs.ko
   AUTOLOAD:=$(call AutoLoad,30,isofs)
@@ -359,6 +380,7 @@ $(eval $(call KernelPackage,fs-nfs))
 define KernelPackage/fs-nfs-common
   SUBMENU:=$(FS_MENU)
   TITLE:=Common NFS filesystem modules
+  DEPENDS:=+kmod-oid-registry
   KCONFIG:= \
 	CONFIG_LOCKD \
 	CONFIG_SUNRPC \
@@ -366,7 +388,8 @@ define KernelPackage/fs-nfs-common
   FILES:= \
 	$(LINUX_DIR)/fs/lockd/lockd.ko \
 	$(LINUX_DIR)/net/sunrpc/sunrpc.ko \
-	$(LINUX_DIR)/fs/nfs_common/grace.ko
+	$(LINUX_DIR)/fs/nfs_common/grace.ko \
+	$(LINUX_DIR)/fs/nfs_common/nfs_ssc.ko@ge5.10
   AUTOLOAD:=$(call AutoLoad,30,grace sunrpc lockd)
 endef
 
@@ -384,15 +407,15 @@ define KernelPackage/fs-nfs-common-rpcsec
 	+kmod-crypto-md5 \
 	+kmod-crypto-sha1 \
 	+kmod-crypto-hmac \
-	+kmod-crypto-ecb
+	+kmod-crypto-ecb \
+	+kmod-crypto-arc4
   KCONFIG:= \
 	CONFIG_SUNRPC_GSS \
 	CONFIG_RPCSEC_GSS_KRB5
   FILES:= \
-	$(LINUX_DIR)/lib/oid_registry.ko \
 	$(LINUX_DIR)/net/sunrpc/auth_gss/auth_rpcgss.ko \
 	$(LINUX_DIR)/net/sunrpc/auth_gss/rpcsec_gss_krb5.ko
-  AUTOLOAD:=$(call AutoLoad,31,oid_registry auth_rpcgss rpcsec_gss_krb5)
+  AUTOLOAD:=$(call AutoLoad,31,auth_rpcgss rpcsec_gss_krb5)
 endef
 
 define KernelPackage/fs-nfs-common-rpcsec/description
@@ -430,7 +453,7 @@ define KernelPackage/fs-nfs-v4
 endef
 
 define KernelPackage/fs-nfs-v4/description
- Kernel module for NFS v4 support
+ Kernel module for NFS v4 client support
 endef
 
 $(eval $(call KernelPackage,fs-nfs-v4))
@@ -439,9 +462,14 @@ $(eval $(call KernelPackage,fs-nfs-v4))
 define KernelPackage/fs-nfsd
   SUBMENU:=$(FS_MENU)
   TITLE:=NFS kernel server support
-  DEPENDS:=+kmod-fs-nfs-common +kmod-fs-exportfs
+  DEPENDS:=+kmod-fs-nfs-common +kmod-fs-exportfs +kmod-fs-nfs-common-rpcsec
   KCONFIG:= \
 	CONFIG_NFSD \
+	CONFIG_NFSD_V4=y \
+	CONFIG_NFSD_V4_SECURITY_LABEL=n \
+	CONFIG_NFSD_BLOCKLAYOUT=n \
+	CONFIG_NFSD_SCSILAYOUT=n \
+	CONFIG_NFSD_FLEXFILELAYOUT=n \
 	CONFIG_NFSD_FAULT_INJECTION=n
   FILES:=$(LINUX_DIR)/fs/nfsd/nfsd.ko
   AUTOLOAD:=$(call AutoLoad,40,nfsd)
@@ -470,11 +498,31 @@ endef
 $(eval $(call KernelPackage,fs-ntfs))
 
 
+define KernelPackage/pstore
+  SUBMENU:=$(FS_MENU)
+  TITLE:=Pstore file system
+  DEFAULT:=m if ALL_KMODS
+  KCONFIG:= \
+	CONFIG_PSTORE \
+	CONFIG_PSTORE_COMPRESS=y \
+	CONFIG_PSTORE_COMPRESS_DEFAULT="deflate" \
+	CONFIG_PSTORE_DEFLATE_COMPRESS=y \
+	CONFIG_PSTORE_DEFLATE_COMPRESS_DEFAULT=y
+  FILES:= $(LINUX_DIR)/fs/pstore/pstore.ko
+  AUTOLOAD:=$(call AutoLoad,30,pstore,1)
+endef
+
+define KernelPackage/pstore/description
+ Kernel module for pstore filesystem support
+endef
+
+$(eval $(call KernelPackage,pstore))
+
+
 define KernelPackage/fs-reiserfs
   SUBMENU:=$(FS_MENU)
   TITLE:=ReiserFS filesystem support
-  KCONFIG:=CONFIG_REISERFS_FS \
-	CONFIG_REISERFS_FS_XATTR=y
+  KCONFIG:=CONFIG_REISERFS_FS
   FILES:=$(LINUX_DIR)/fs/reiserfs/reiserfs.ko
   AUTOLOAD:=$(call AutoLoad,30,reiserfs,1)
 endef
@@ -508,7 +556,7 @@ define KernelPackage/fs-udf
   KCONFIG:=CONFIG_UDF_FS
   FILES:=$(LINUX_DIR)/fs/udf/udf.ko
   AUTOLOAD:=$(call AutoLoad,30,udf)
-  DEPENDS:=+kmod-lib-crc-itu-t
+  DEPENDS:=+kmod-lib-crc-itu-t +kmod-cdrom
   $(call AddDepends/nls)
 endef
 
@@ -568,5 +616,3 @@ define KernelPackage/fuse/description
 endef
 
 $(eval $(call KernelPackage,fuse))
-
-

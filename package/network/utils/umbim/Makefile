@@ -1,19 +1,17 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=umbim
-PKG_RELEASE:=1
+PKG_RELEASE:=$(AUTORELEASE)
 
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL=$(PROJECT_GIT)/project/umbim.git
-PKG_SOURCE_DATE:=2015-07-04
-PKG_SOURCE_VERSION:=29aaf43b097ee57f7aa1bb24341db6cc4148cbf3
-PKG_MIRROR_HASH:=56e612d9da1ac26de96c4929fbabd047862d725a13ceb904807a9d3d7db43a30
+PKG_SOURCE_DATE:=2021-08-18
+PKG_SOURCE_VERSION:=de5623104baee6e0c13c92f05c15bf4b4145c0b1
+PKG_MIRROR_HASH:=2d4a75d2b53c8413521a2fd138895e327bff3f4b4d29a540342b2d2e1e009852
 PKG_MAINTAINER:=John Crispin <john@phrozen.org>
 
 PKG_LICENSE:=GPL-2.0
 PKG_LICENSE_FILES:=
-
-PKG_BUILD_PARALLEL:=1
 
 PKG_FLAGS:=nonshared
 
@@ -23,6 +21,7 @@ include $(INCLUDE_DIR)/cmake.mk
 define Package/umbim
   SECTION:=net
   CATEGORY:=Network
+  SUBMENU:=WWAN
   DEPENDS:=+libubox +kmod-usb-net +kmod-usb-net-cdc-mbim +wwan
   TITLE:=Control utility for mobile broadband modems
 endef

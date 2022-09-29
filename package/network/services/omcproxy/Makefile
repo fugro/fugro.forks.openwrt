@@ -8,13 +8,13 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=omcproxy
-PKG_RELEASE:=4
+PKG_RELEASE:=9
 
-PKG_SOURCE_URL:=https://github.com/sbyx/omcproxy.git
 PKG_SOURCE_PROTO:=git
-PKG_SOURCE_DATE:=2017-02-14
-PKG_SOURCE_VERSION:=1fe6f48f8a5067685cbcf6427baf1b3e8b889da1
-PKG_MIRROR_HASH:=b5a5e09149bd08a945ada8a29a30c3e42834524747d7fd0911717f5a0ec59c72
+PKG_SOURCE_URL=$(PROJECT_GIT)/project/omcproxy.git
+PKG_MIRROR_HASH:=6443276368dc7d45ee58bd7067da6c3a85396d9996039232cae3bdd426382f0c
+PKG_SOURCE_DATE:=2021-11-04
+PKG_SOURCE_VERSION:=bfba2aa75802ff1a70ef2fd3eba53409a8c6e93a
 PKG_MAINTAINER:=Steven Barth <cyrus@openwrt.org>
 PKG_LICENSE:=Apache-2.0
 
@@ -26,6 +26,10 @@ define Package/omcproxy
   CATEGORY:=Network
   DEPENDS:=+libubox +libubus
   TITLE:=IGMPv3 and MLDv2 Multicast Proxy
+endef
+
+define Package/omcproxy/conffiles
+/etc/config/omcproxy
 endef
 
 CMAKE_OPTIONS += -DWITH_LIBUBOX=1

@@ -5,6 +5,7 @@
 /dl
 /.config
 /.config.old
+/.toolchain_build_ver
 /bin
 /build_dir
 /staging_dir
@@ -16,6 +17,8 @@
 /overlay
 /package/feeds
 /package/openwrt-packages
+/*.patch
+/llvm-bpf*
 key-build*
 *.orig
 *.rej
@@ -27,3 +30,5 @@ TAGS*~
 git-src
 .project
 .cproject
+.ccache
+.vscode*

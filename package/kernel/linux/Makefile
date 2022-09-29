@@ -14,7 +14,7 @@ PKG_FLAGS:=hold
 PKG_BUILD_DIR:=$(KERNEL_BUILD_DIR)/packages
 SCAN_DEPS=modules/*.mk $(TOPDIR)/target/linux/*/modules.mk $(TOPDIR)/include/netfilter.mk
 
-PKG_LICENSE:=GPLv2
+PKG_LICENSE:=GPL-2.0
 PKG_LICENSE_FILES:=
 
 export SHELL:=/bin/sh
@@ -24,7 +24,7 @@ export SHELL:=/bin/sh
 include $(INCLUDE_DIR)/package.mk
 
 ifeq ($(DUMP),)
-  STAMP_BUILT:=$(STAMP_BUILT)_$(shell $(SCRIPT_DIR)/kconfig.pl $(LINUX_DIR)/.config | mkhash md5)
+  STAMP_BUILT:=$(STAMP_BUILT)_$(shell $(SCRIPT_DIR)/kconfig.pl $(LINUX_DIR)/.config | $(MKHASH) md5)
   -include $(LINUX_DIR)/.config
 endif
 

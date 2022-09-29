@@ -9,15 +9,15 @@ include $(TOPDIR)/rules.mk
 include $(INCLUDE_DIR)/kernel.mk
 
 PKG_NAME:=iptables
-PKG_VERSION:=1.6.2
-PKG_RELEASE:=1
+PKG_VERSION:=1.8.7
+PKG_RELEASE:=6
 
-PKG_SOURCE_PROTO:=git
-PKG_SOURCE_URL:=https://git.netfilter.org/iptables
-PKG_SOURCE_VERSION:=c16bdec15137b241586310d0e61bc88cc3726004
-PKG_MIRROR_HASH:=72e4bec94a56dd600097846c773e1074ff705e38f800ef221db646c064371a53
+PKG_SOURCE_URL:=https://netfilter.org/projects/iptables/files
+PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.bz2
+PKG_HASH:=c109c96bb04998cd44156622d36f8e04b140701ec60531a10668cfdff5e8d8f0
 
 PKG_FIXUP:=autoreconf
+PKG_FLAGS:=nonshared
 
 PKG_INSTALL:=1
 PKG_BUILD_PARALLEL:=1
@@ -28,7 +28,7 @@ include $(INCLUDE_DIR)/package.mk
 ifeq ($(DUMP),)
   -include $(LINUX_DIR)/.config
   include $(INCLUDE_DIR)/netfilter.mk
-  STAMP_CONFIGURED:=$(strip $(STAMP_CONFIGURED))_$(shell grep 'NETFILTER' $(LINUX_DIR)/.config | mkhash md5)
+  STAMP_CONFIGURED:=$(strip $(STAMP_CONFIGURED))_$(shell grep 'NETFILTER' $(LINUX_DIR)/.config | $(MKHASH) md5)
 endif
 
 
@@ -36,36 +36,32 @@ define Package/iptables/Default
   SECTION:=net
   CATEGORY:=Network
   SUBMENU:=Firewall
-  URL:=http://netfilter.org/
+  URL:=https://netfilter.org/
 endef
 
 define Package/iptables/Module
 $(call Package/iptables/Default)
-  DEPENDS:=iptables $(1)
+  DEPENDS:=+libxtables $(1)
 endef
 
-define Package/iptables
+define Package/xtables-legacy
 $(call Package/iptables/Default)
   TITLE:=IP firewall administration tool
-  MENU:=1
-  DEPENDS+= +kmod-ipt-core +libip4tc +IPV6:libip6tc +libxtables
+  DEPENDS+= +kmod-ipt-core +libip4tc +IPV6:libip6tc +libiptext +IPV6:libiptext6 +libxtables
 endef
 
-define Package/iptables/config
-  config IPTABLES_CONNLABEL
-	bool "Enable Connlabel support"
-	default n
-	help
-		This enable connlabel support in iptables.
-
-  config IPTABLES_NFTABLES
-	bool "Enable Nftables support"
-	default n
-	help
-		This enable nftables support in iptables.
+define Package/iptables-legacy
+$(call Package/iptables/Default)
+  TITLE:=IP firewall administration tool
+  DEPENDS+= +xtables-legacy
+  PROVIDES:=iptables
+  ALTERNATIVES:=\
+    200:/usr/sbin/iptables:/usr/sbin/xtables-legacy-multi \
+    200:/usr/sbin/iptables-restore:/usr/sbin/xtables-legacy-multi \
+    200:/usr/sbin/iptables-save:/usr/sbin/xtables-legacy-multi
 endef
 
-define Package/iptables/description
+define Package/iptables-legacy/description
 IP firewall administration tool.
 
  Matches:
@@ -88,6 +84,7 @@ IP firewall administration tool.
   - DNAT
   - DROP
   - REJECT
+  - FLOWOFFLOAD
   - LOG
   - MARK
   - MASQUERADE
@@ -104,8 +101,56 @@ IP firewall administration tool.
 
 endef
 
+define Package/xtables-nft
+$(call Package/iptables/Default)
+  TITLE:=IP firewall administration tool nft
+  DEPENDS:=@IPTABLES_NFTABLES +libnftnl +libiptext +IPV6:libiptext6 +libiptext-nft +kmod-nft-compat
+endef
+
+define Package/arptables-nft
+$(call Package/iptables/Default)
+  DEPENDS:=+kmod-nft-arp +xtables-nft +kmod-arptables
+  TITLE:=ARP firewall administration tool nft
+  PROVIDES:=arptables
+  ALTERNATIVES:=\
+    300:/usr/sbin/arptables:/usr/sbin/xtables-nft-multi \
+    300:/usr/sbin/arptables-restore:/usr/sbin/xtables-nft-multi \
+    300:/usr/sbin/arptables-save:/usr/sbin/xtables-nft-multi
+endef
+
+define Package/ebtables-nft
+$(call Package/iptables/Default)
+  DEPENDS:=+kmod-nft-bridge +xtables-nft +kmod-ebtables
+  TITLE:=Bridge firewall administration tool nft
+  PROVIDES:=ebtables
+  ALTERNATIVES:=\
+    300:/usr/sbin/ebtables:/usr/sbin/xtables-nft-multi \
+    300:/usr/sbin/ebtables-restore:/usr/sbin/xtables-nft-multi \
+    300:/usr/sbin/ebtables-save:/usr/sbin/xtables-nft-multi
+endef
+
+define Package/iptables-nft
+$(call Package/iptables/Default)
+  TITLE:=IP firewall administration tool nft
+  DEPENDS:=+kmod-ipt-core +xtables-nft
+  PROVIDES:=iptables
+  ALTERNATIVES:=\
+    300:/usr/sbin/iptables:/usr/sbin/xtables-nft-multi \
+    300:/usr/sbin/iptables-restore:/usr/sbin/xtables-nft-multi \
+    300:/usr/sbin/iptables-save:/usr/sbin/xtables-nft-multi
+endef
+
+define Package/iptables-nft/description
+Extra iptables nftables nft binaries.
+  iptables-nft
+  iptables-nft-restore
+  iptables-nft-save
+  iptables-translate
+  iptables-restore-translate
+endef
+
 define Package/iptables-mod-conntrack-extra
-$(call Package/iptables/Module, +kmod-ipt-conntrack-extra)
+$(call Package/iptables/Module, +kmod-ipt-conntrack-extra +kmod-ipt-raw)
   TITLE:=Extra connection tracking extensions
 endef
 
@@ -149,6 +194,7 @@ Includes support for:
 
  Matches:
   - string
+  - bpf
 
 endef
 
@@ -376,6 +422,19 @@ iptables extension for triggering a LED.
 
 endef
 
+define Package/iptables-mod-socket
+$(call Package/iptables/Module, +kmod-ipt-socket)
+  TITLE:=Socket match iptables extensions
+endef
+
+define Package/iptables-mod-socket/description
+Socket match iptables extensions.
+
+ Matches:
+  - socket
+
+endef
+
 define Package/iptables-mod-tproxy
 $(call Package/iptables/Module, +kmod-ipt-tproxy)
   TITLE:=Transparent proxy iptables extensions
@@ -383,9 +442,6 @@ endef
 
 define Package/iptables-mod-tproxy/description
 Transparent proxy iptables extensions.
-
- Matches:
-  - socket
 
  Targets:
   - TPROXY
@@ -427,28 +483,51 @@ define Package/iptables-mod-checksum/description
 iptables extension for the CHECKSUM calculation target
 endef
 
-define Package/ip6tables
+define Package/ip6tables-legacy
 $(call Package/iptables/Default)
-  DEPENDS:=@IPV6 +kmod-ip6tables +iptables
+  DEPENDS:=@IPV6 +kmod-ip6tables +xtables-legacy
   CATEGORY:=Network
   TITLE:=IPv6 firewall administration tool
-  MENU:=1
+  PROVIDES:=ip6tables
+  ALTERNATIVES:=\
+    200:/usr/sbin/ip6tables:/usr/sbin/xtables-legacy-multi \
+    200:/usr/sbin/ip6tables-restore:/usr/sbin/xtables-legacy-multi \
+    200:/usr/sbin/ip6tables-save:/usr/sbin/xtables-legacy-multi
 endef
 
+define Package/ip6tables-nft
+$(call Package/iptables/Default)
+  DEPENDS:=@IPV6 +kmod-ip6tables +xtables-nft
+  TITLE:=IP firewall administration tool nft
+  PROVIDES:=ip6tables
+  ALTERNATIVES:=\
+    300:/usr/sbin/ip6tables:/usr/sbin/xtables-nft-multi \
+    300:/usr/sbin/ip6tables-restore:/usr/sbin/xtables-nft-multi \
+    300:/usr/sbin/ip6tables-save:/usr/sbin/xtables-nft-multi
+endef
+
+define Package/ip6tables-nft/description
+Extra ip6tables nftables nft binaries.
+  ip6tables-nft
+  ip6tables-nft-restore
+  ip6tables-nft-save
+  ip6tables-translate
+  ip6tables-restore-translate
+endef
 
 define Package/ip6tables-extra
 $(call Package/iptables/Default)
-  DEPENDS:=ip6tables +kmod-ip6tables-extra
+  DEPENDS:=+libxtables +kmod-ip6tables-extra
   TITLE:=IPv6 header matching modules
 endef
 
-define Package/ip6tables-mod-extra/description
+define Package/ip6tables-extra/description
 iptables header matching modules for IPv6
 endef
 
 define Package/ip6tables-mod-nat
 $(call Package/iptables/Default)
-  DEPENDS:=ip6tables +kmod-ipt-nat6
+  DEPENDS:=+libxtables +kmod-ipt-nat6
   TITLE:=IPv6 NAT extensions
 endef
 
@@ -456,22 +535,12 @@ define Package/ip6tables-mod-nat/description
 iptables extensions for IPv6-NAT targets.
 endef
 
-define Package/libiptc
-$(call Package/iptables/Default)
-  SECTION:=libs
-  CATEGORY:=Libraries
-  DEPENDS:=+libip4tc +libip6tc +libxtables
-  ABI_VERSION:=$(PKG_VERSION)
-  TITLE:=IPv4/IPv6 firewall - shared libiptc library (compatibility stub)
-endef
-
 define Package/libip4tc
 $(call Package/iptables/Default)
   SECTION:=libs
   CATEGORY:=Libraries
   TITLE:=IPv4 firewall - shared libiptc library
-  ABI_VERSION:=$(PKG_VERSION)
-  DEPENDS:=+libxtables
+  ABI_VERSION:=2
 endef
 
 define Package/libip6tc
@@ -479,8 +548,34 @@ $(call Package/iptables/Default)
   SECTION:=libs
   CATEGORY:=Libraries
   TITLE:=IPv6 firewall - shared libiptc library
-  ABI_VERSION:=$(PKG_VERSION)
-  DEPENDS:=+libxtables
+  ABI_VERSION:=2
+endef
+
+define Package/libiptext
+ $(call Package/iptables/Default)
+ SECTION:=libs
+ CATEGORY:=Libraries
+ TITLE:=IPv4 firewall - shared libiptext library
+ ABI_VERSION:=0
+ DEPENDS:=+libxtables
+endef
+
+define Package/libiptext6
+ $(call Package/iptables/Default)
+ SECTION:=libs
+ CATEGORY:=Libraries
+ TITLE:=IPv6 firewall - shared libiptext library
+ ABI_VERSION:=0
+ DEPENDS:=+libxtables
+endef
+
+define Package/libiptext-nft
+ $(call Package/iptables/Default)
+ SECTION:=libs
+ CATEGORY:=Libraries
+ TITLE:=IPv4/IPv6 firewall - shared libiptext nft library
+ ABI_VERSION:=0
+ DEPENDS:=@IPTABLES_NFTABLES +libxtables
 endef
 
 define Package/libxtables
@@ -488,10 +583,23 @@ define Package/libxtables
  SECTION:=libs
  CATEGORY:=Libraries
  TITLE:=IPv4/IPv6 firewall - shared xtables library
- ABI_VERSION:=$(PKG_VERSION)
- DEPENDS:= \
-	+IPTABLES_CONNLABEL:libnetfilter-conntrack \
-	+IPTABLES_NFTABLES:libnftnl
+ MENU:=1
+ ABI_VERSION:=12
+ DEPENDS:=+IPTABLES_CONNLABEL:libnetfilter-conntrack
+endef
+
+define Package/libxtables/config
+  config IPTABLES_CONNLABEL
+	bool "Enable Connlabel support"
+	default n
+	help
+		This enable connlabel support in iptables.
+
+  config IPTABLES_NFTABLES
+	bool "Enable Nftables support"
+	default y
+	help
+		This enable nftables support in iptables.
 endef
 
 TARGET_CPPFLAGS := \
@@ -564,39 +672,82 @@ define Build/InstallDev
 	$(CP) $(PKG_BUILD_DIR)/extensions/libiptext*.so $(1)/usr/lib/
 endef
 
-define Package/iptables/install
+define Package/xtables-legacy/install
 	$(INSTALL_DIR) $(1)/usr/sbin
-	$(CP) $(PKG_INSTALL_DIR)/usr/sbin/xtables-multi $(1)/usr/sbin/
-	$(CP) $(PKG_INSTALL_DIR)/usr/sbin/iptables{,-restore,-save} $(1)/usr/sbin/
+	$(CP) $(PKG_INSTALL_DIR)/usr/sbin/xtables-legacy-multi $(1)/usr/sbin/
+endef
+
+define Package/iptables-legacy/install
+	$(INSTALL_DIR) $(1)/usr/sbin
+	$(CP) $(PKG_INSTALL_DIR)/usr/sbin/iptables-legacy{,-restore,-save} $(1)/usr/sbin/
 	$(INSTALL_DIR) $(1)/usr/lib/iptables
 endef
 
-define Package/ip6tables/install
+define Package/xtables-nft/install
 	$(INSTALL_DIR) $(1)/usr/sbin
-	$(CP) $(PKG_INSTALL_DIR)/usr/sbin/ip6tables{,-restore,-save} $(1)/usr/sbin/
+	$(CP) $(PKG_INSTALL_DIR)/usr/sbin/xtables-nft-multi $(1)/usr/sbin/
 endef
 
-define Package/libiptc/install
-	$(INSTALL_DIR) $(1)/usr/lib
-	$(CP) $(PKG_INSTALL_DIR)/usr/lib/libiptc.so* $(1)/usr/lib/
+define Package/arptables-nft/install
+	$(INSTALL_DIR) $(1)/usr/sbin
+	$(CP) $(PKG_INSTALL_DIR)/usr/sbin/arptables-nft{,-restore,-save} $(1)/usr/sbin/
+	$(INSTALL_DIR) $(1)/usr/lib/iptables
+	$(CP) $(PKG_BUILD_DIR)/extensions/libarpt_*.so $(1)/usr/lib/iptables/
+endef
+
+define Package/ebtables-nft/install
+	$(INSTALL_DIR) $(1)/usr/sbin
+	$(CP) $(PKG_INSTALL_DIR)/usr/sbin/ebtables-nft{,-restore,-save} $(1)/usr/sbin/
+	$(INSTALL_DIR) $(1)/usr/lib/iptables
+	$(CP) $(PKG_BUILD_DIR)/extensions/libebt_*.so $(1)/usr/lib/iptables/
+endef
+
+define Package/iptables-nft/install
+	$(INSTALL_DIR) $(1)/usr/sbin
+	$(CP) $(PKG_INSTALL_DIR)/usr/sbin/iptables-nft{,-restore,-save} $(1)/usr/sbin/
+	$(CP) $(PKG_INSTALL_DIR)/usr/sbin/iptables{,-restore}-translate $(1)/usr/sbin/
+endef
+
+define Package/ip6tables-legacy/install
+	$(INSTALL_DIR) $(1)/usr/sbin
+	$(CP) $(PKG_INSTALL_DIR)/usr/sbin/ip6tables-legacy{,-restore,-save} $(1)/usr/sbin/
+endef
+
+define Package/ip6tables-nft/install
+	$(INSTALL_DIR) $(1)/usr/sbin
+	$(CP) $(PKG_INSTALL_DIR)/usr/sbin/ip6tables-nft{,-restore,-save} $(1)/usr/sbin/
+	$(CP) $(PKG_INSTALL_DIR)/usr/sbin/ip6tables{,-restore}-translate $(1)/usr/sbin/
 endef
 
 define Package/libip4tc/install
 	$(INSTALL_DIR) $(1)/usr/lib
-	$(CP) $(PKG_INSTALL_DIR)/usr/lib/libip4tc.so* $(1)/usr/lib/
-	$(CP) $(PKG_BUILD_DIR)/extensions/libiptext4.so $(1)/usr/lib/
+	$(CP) $(PKG_INSTALL_DIR)/usr/lib/libip4tc.so.* $(1)/usr/lib/
 endef
 
 define Package/libip6tc/install
 	$(INSTALL_DIR) $(1)/usr/lib
-	$(CP) $(PKG_INSTALL_DIR)/usr/lib/libip6tc.so* $(1)/usr/lib/
+	$(CP) $(PKG_INSTALL_DIR)/usr/lib/libip6tc.so.* $(1)/usr/lib/
+endef
+
+define Package/libiptext/install
+	$(INSTALL_DIR) $(1)/usr/lib
+	$(CP) $(PKG_BUILD_DIR)/extensions/libiptext.so $(1)/usr/lib/
+	$(CP) $(PKG_BUILD_DIR)/extensions/libiptext4.so $(1)/usr/lib/
+endef
+
+define Package/libiptext6/install
+	$(INSTALL_DIR) $(1)/usr/lib
 	$(CP) $(PKG_BUILD_DIR)/extensions/libiptext6.so $(1)/usr/lib/
+endef
+
+define Package/libiptext-nft/install
+	$(INSTALL_DIR) $(1)/usr/lib
+	$(CP) $(PKG_BUILD_DIR)/extensions/libiptext_*.so $(1)/usr/lib/
 endef
 
 define Package/libxtables/install
 	$(INSTALL_DIR) $(1)/usr/lib
-	$(CP) $(PKG_INSTALL_DIR)/usr/lib/libxtables.so* $(1)/usr/lib/
-	$(CP) $(PKG_BUILD_DIR)/extensions/libiptext.so $(1)/usr/lib/
+	$(CP) $(PKG_INSTALL_DIR)/usr/lib/libxtables.so.* $(1)/usr/lib/
 endef
 
 define BuildPlugin
@@ -613,7 +764,18 @@ define BuildPlugin
   $$(eval $$(call BuildPackage,$(1)))
 endef
 
-$(eval $(call BuildPackage,iptables))
+$(eval $(call BuildPackage,libxtables))
+$(eval $(call BuildPackage,libip4tc))
+$(eval $(call BuildPackage,libip6tc))
+$(eval $(call BuildPackage,libiptext))
+$(eval $(call BuildPackage,libiptext6))
+$(eval $(call BuildPackage,libiptext-nft))
+$(eval $(call BuildPackage,xtables-legacy))
+$(eval $(call BuildPackage,iptables-legacy))
+$(eval $(call BuildPackage,xtables-nft))
+$(eval $(call BuildPackage,arptables-nft))
+$(eval $(call BuildPackage,ebtables-nft))
+$(eval $(call BuildPackage,iptables-nft))
 $(eval $(call BuildPlugin,iptables-mod-conntrack-extra,$(IPT_CONNTRACK_EXTRA-m)))
 $(eval $(call BuildPlugin,iptables-mod-conntrack-label,$(IPT_CONNTRACK_LABEL-m)))
 $(eval $(call BuildPlugin,iptables-mod-extra,$(IPT_EXTRA-m)))
@@ -629,6 +791,7 @@ $(eval $(call BuildPlugin,iptables-mod-ulog,$(IPT_ULOG-m)))
 $(eval $(call BuildPlugin,iptables-mod-hashlimit,$(IPT_HASHLIMIT-m)))
 $(eval $(call BuildPlugin,iptables-mod-rpfilter,$(IPT_RPFILTER-m)))
 $(eval $(call BuildPlugin,iptables-mod-led,$(IPT_LED-m)))
+$(eval $(call BuildPlugin,iptables-mod-socket,$(IPT_SOCKET-m)))
 $(eval $(call BuildPlugin,iptables-mod-tproxy,$(IPT_TPROXY-m)))
 $(eval $(call BuildPlugin,iptables-mod-tee,$(IPT_TEE-m)))
 $(eval $(call BuildPlugin,iptables-mod-u32,$(IPT_U32-m)))
@@ -636,10 +799,8 @@ $(eval $(call BuildPlugin,iptables-mod-nflog,$(IPT_NFLOG-m)))
 $(eval $(call BuildPlugin,iptables-mod-trace,$(IPT_DEBUG-m)))
 $(eval $(call BuildPlugin,iptables-mod-nfqueue,$(IPT_NFQUEUE-m)))
 $(eval $(call BuildPlugin,iptables-mod-checksum,$(IPT_CHECKSUM-m)))
-$(eval $(call BuildPackage,ip6tables))
+$(eval $(call BuildPackage,ip6tables-legacy))
+$(eval $(call BuildPackage,ip6tables-nft))
 $(eval $(call BuildPlugin,ip6tables-extra,$(IPT_IPV6_EXTRA-m)))
 $(eval $(call BuildPlugin,ip6tables-mod-nat,$(IPT_NAT6-m)))
-$(eval $(call BuildPackage,libiptc))
-$(eval $(call BuildPackage,libip4tc))
-$(eval $(call BuildPackage,libip6tc))
-$(eval $(call BuildPackage,libxtables))
+

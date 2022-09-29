@@ -29,10 +29,7 @@
 curdir:=toolchain
 
 # subdirectories to descend into
-$(curdir)/builddirs := $(if $(CONFIG_GDB),gdb) $(if $(CONFIG_EXTERNAL_TOOLCHAIN),wrapper,kernel-headers binutils gcc/initial gcc/final $(LIBC) fortify-headers) $(if $(CONFIG_YASM),yasm)
-ifdef CONFIG_USE_UCLIBC
-  $(curdir)/builddirs += $(LIBC)/utils
-endif
+$(curdir)/builddirs := $(if $(CONFIG_GDB),gdb) $(if $(CONFIG_EXTERNAL_TOOLCHAIN),wrapper,kernel-headers binutils gcc/initial gcc/final $(LIBC) fortify-headers) $(if $(CONFIG_NASM),nasm)
 
 # builddir dependencies
 ifeq ($(CONFIG_EXTERNAL_TOOLCHAIN),)
@@ -49,7 +46,7 @@ ifeq ($(CONFIG_EXTERNAL_TOOLCHAIN),)
 
   $(curdir)/gcc/initial/compile+=$(curdir)/binutils/compile
   $(curdir)/$(LIBC)/compile:=$(curdir)/gcc/initial/compile
-  $(curdir)/gcc/final/compile:=$(curdir)/$(LIBC)/compile
+  $(curdir)/gcc/final/compile:=$(curdir)/$(LIBC)/compile $(curdir)/kernel-headers/compile
   $(curdir)/$(LIBC)/utils/compile:=$(curdir)/gcc/final/compile
 endif
 
@@ -70,6 +67,7 @@ endif
 endif
 
 ifdef CONFIG_BUILDBOT
+ifneq ($(wildcard $(TOPDIR)/.git),)
   $(TOOLCHAIN_DIR)/stamp/.ver_check: $(TMP_DIR)/.build
 	cd "$(TOPDIR)"; git log --format=%h -1 toolchain > $(TMP_DIR)/.ver_check
 	cmp -s $(TMP_DIR)/.ver_check $@ || { \
@@ -79,6 +77,7 @@ ifdef CONFIG_BUILDBOT
 	}
 
 $(TOOLCHAIN_DIR)/info.mk $(STAGING_DIR)/.prepared: $(TOOLCHAIN_DIR)/stamp/.ver_check
+endif
 endif
 
 # prerequisites for the individual targets

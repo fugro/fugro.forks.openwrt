@@ -8,13 +8,13 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=ugps
-PKG_RELEASE:=3
+PKG_RELEASE:=$(AUTORELEASE)
 
 PKG_SOURCE_URL=$(PROJECT_GIT)/project/ugps.git
 PKG_SOURCE_PROTO:=git
-PKG_SOURCE_DATE:=2017-02-11
-PKG_SOURCE_VERSION:=c30055a685bca1e81ccc8f4bd3bb08d780a7d762
-PKG_MIRROR_HASH:=a618f9a15d3a585453550190eed2bb0a308ddba0ab37f2f6b76dd3c87fd80e8b
+PKG_SOURCE_DATE:=2021-06-08
+PKG_SOURCE_VERSION:=5e88403fc0d39ae8a270d2c6c6e9c8a4d5232cf3
+PKG_MIRROR_HASH:=a3dfc2cc6def3b634d8b7cda9139926be3d876cf2faa5251c4821987954442a5
 
 PKG_MAINTAINER:=John Crispin <john@phrozen.org>
 PKG_LICENSE:=GPL-2.0+
@@ -30,10 +30,6 @@ define Package/ugps
 endef
 
 TARGET_CFLAGS += -I$(STAGING_DIR)/usr/include
-
-ifneq ($(CONFIG_USE_GLIBC),)
-  TARGET_CFLAGS += -D_DEFAULT_SOURCE
-endif
 
 define Package/ugps/conffiles
 /etc/config/gps
