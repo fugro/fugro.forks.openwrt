@@ -75,7 +75,7 @@ static unsigned long kernel_la;
 #ifdef CONFIG_KERNEL_CMDLINE
 #define kernel_argc	2
 static const char kernel_cmdline[] = CONFIG_KERNEL_CMDLINE;
-static const char *kernel_argv[] = {
+static const char *const kernel_argv[] = {
 	NULL,
 	kernel_cmdline,
 	NULL,
@@ -189,7 +189,11 @@ static void lzma_init_data(void)
 
 		p = flash_base + flash_ofs;
 		magic = get_be32(p);
+#ifdef CONFIG_KERNEL_MAGIC
+		if (magic == CONFIG_KERNEL_MAGIC) {
+#else
 		if (magic == IH_MAGIC_OKLI) {
+#endif
 			hdr = (struct image_header *) p;
 			break;
 		}

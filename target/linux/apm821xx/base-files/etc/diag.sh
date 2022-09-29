@@ -1,44 +1,50 @@
 #!/bin/sh
+# SPDX-License-Identifier: GPL-2.0-only
 
-. /lib/functions.sh
 . /lib/functions/leds.sh
 
-boot="$(get_dt_led boot)"
-failsafe="$(get_dt_led failsafe)"
-running="$(get_dt_led running)"
-upgrade="$(get_dt_led upgrade)"
+get_status_led() {
+	local status_led_file
+
+	status_led_file=$(find /sys/class/leds/ -name "*:power" | head -n1)
+	if [ -d "$status_led_file" ]; then
+		basename $status_led_file
+		return
+	fi;
+}
+
+get_failsafe_led() {
+	local status_led_file
+
+	status_led_file=$(find /sys/class/leds/ -name "*:fault" | head -n1)
+	if [ -d "$status_led_file" ]; then
+		basename $status_led_file
+		return
+	fi;
+}
 
 set_state() {
-	status_led="$boot"
+	status_led=$(get_status_led)
+
+	[ -z "$status_led" ] && return
 
 	case "$1" in
-	preinit_regular)
-		status_led_blink_preinit_regular
-		;;
 	preinit)
 		status_led_blink_preinit
 		;;
 	failsafe)
 		status_led_off
-		[ -n "$running" ] && {
-			status_led="$running"
-			status_led_off
-		}
-		status_led="$failsafe"
+		status_led=$(get_failsafe_led)
 		status_led_blink_failsafe
 		;;
-	upgrade)
-		[ -n "$running" ] && {
-			status_led="$upgrade"
-			status_led_blink_preinit_regular
-		}
+	preinit_regular)
+		status_led_blink_preinit_regular
 		;;
+        upgrade)
+                status_led_blink_preinit_regular
+                ;;
 	done)
-		status_led_off
-		[ -n "$running" ] && {
-			status_led="$running"
-			status_led_on
-		}
+		status_led_on
 		;;
 	esac
 }

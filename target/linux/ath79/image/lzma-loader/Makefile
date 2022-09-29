@@ -8,11 +8,12 @@
 
 include $(TOPDIR)/rules.mk
 
-LZMA_TEXT_START	:= 0x80a00000
+LZMA_TEXT_START	:= 0x81800000
 LOADADDR	:= 0x80060000
 LOADER		:= loader.bin
 LOADER_NAME	:= $(basename $(notdir $(LOADER)))
-LOADER_DATA 	:=
+LOADER_DATA	:=
+KERNEL_MAGIC	:=
 TARGET_DIR	:=
 FLASH_OFFS	:=
 FLASH_MAX	:=
@@ -41,13 +42,18 @@ loader-compile: $(PKG_BUILD_DIR)/.prepared
 		LZMA_TEXT_START=$(LZMA_TEXT_START) \
 		LOADADDR=$(LOADADDR) \
 		LOADER_DATA=$(LOADER_DATA) \
+		KERNEL_MAGIC=$(KERNEL_MAGIC) \
 		FLASH_OFFS=$(FLASH_OFFS) \
 		FLASH_MAX=$(FLASH_MAX) \
 		BOARD="$(BOARD)" \
 		clean all
 
 loader.gz: $(PKG_BUILD_DIR)/loader.bin
-	gzip -nc9 $< > $(LOADER_GZ)
+	# Workaround for buggy bootloaders: Some devices
+	# (TP-Link TL-WR1043ND v1) don't work correctly when
+	# the uncompressed loader is too small (probably a cache
+	# invalidation issue)
+	dd if=$< bs=512K conv=sync | gzip -nc9 > $(LOADER_GZ)
 
 loader.elf: $(PKG_BUILD_DIR)/loader.elf
 	$(CP) $< $(LOADER_ELF)

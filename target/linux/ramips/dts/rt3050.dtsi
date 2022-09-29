@@ -1,11 +1,22 @@
+/dts-v1/;
+
 / {
 	#address-cells = <1>;
 	#size-cells = <1>;
 	compatible = "ralink,rt3050-soc", "ralink,rt3052-soc", "ralink,rt3350-soc";
 
+	aliases {
+		spi0 = &spi0;
+		serial0 = &uartlite;
+	};
+
 	cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
 		cpu@0 {
 			compatible = "mips,mips24KEc";
+			reg = <0>;
 		};
 	};
 
@@ -13,12 +24,7 @@
 		bootargs = "console=ttyS0,57600";
 	};
 
-	aliases {
-		spi0 = &spi0;
-		serial0 = &uartlite;
-	};
-
-	cpuintc: cpuintc@0 {
+	cpuintc: cpuintc {
 		#address-cells = <0>;
 		#interrupt-cells = <1>;
 		interrupt-controller;
@@ -104,8 +110,8 @@
 			gpio-controller;
 			#gpio-cells = <2>;
 
+			ngpios = <24>;
 			ralink,gpio-base = <0>;
-			ralink,num-gpios = <24>;
 			ralink,register-map = [ 00 04 08 0c
 						20 24 28 2c
 						30 34 ];
@@ -124,8 +130,8 @@
 			gpio-controller;
 			#gpio-cells = <2>;
 
+			ngpios = <16>;
 			ralink,gpio-base = <24>;
-			ralink,num-gpios = <16>;
 			ralink,register-map = [ 00 04 08 0c
 						10 14 18 1c
 						20 24 ];
@@ -140,8 +146,8 @@
 			gpio-controller;
 			#gpio-cells = <2>;
 
+			ngpios = <12>;
 			ralink,gpio-base = <40>;
-			ralink,num-gpios = <12>;
 			ralink,register-map = [ 00 04 08 0c
 						10 14 18 1c
 						20 24 ];
@@ -241,36 +247,36 @@
 
 		state_default: pinctrl0 {
 			sdram {
-				ralink,group = "sdram";
-				ralink,function = "sdram";
+				groups = "sdram";
+				function = "sdram";
 			};
 		};
 
-		i2c_pins: i2c {
-			i2c {
-				ralink,group = "i2c";
-				ralink,function = "i2c";
+		i2c_pins: i2c_pins {
+			i2c_pins {
+				groups = "i2c";
+				function = "i2c";
 			};
 		};
 
-		spi_pins: spi {
-			spi {
-				ralink,group = "spi";
-				ralink,function = "spi";
+		spi_pins: spi_pins {
+			spi_pins {
+				groups = "spi";
+				function = "spi";
 			};
 		};
 
 		rgmii_pins: rgmii {
 			rgmii {
-				ralink,group = "rgmii";
-				ralink,function = "rgmii";
+				groups = "rgmii";
+				function = "rgmii";
 			};
 		};
 
 		uartlite_pins: uartlite {
 			uart {
-				ralink,group = "uartlite";
-				ralink,function = "uartlite";
+				groups = "uartlite";
+				function = "uartlite";
 			};
 		};
 	};
@@ -313,8 +319,8 @@
 		compatible = "ralink,rt3050-esw";
 		reg = <0x10110000 0x8000>;
 
-		resets = <&rstctrl 23>;
-		reset-names = "esw";
+		resets = <&rstctrl 23 &rstctrl 24>;
+		reset-names = "esw", "ephy";
 
 		interrupt-parent = <&intc>;
 		interrupts = <17>;
@@ -331,6 +337,8 @@
 	};
 
 	otg: otg@101c0000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
 		compatible = "ralink,rt3050-otg", "snps,dwc2";
 		reg = <0x101c0000 0x40000>;
 
@@ -341,5 +349,10 @@
 		reset-names = "otg";
 
 		status = "disabled";
+
+		otg_port1: port@1 {
+			reg = <1>;
+			#trigger-source-cells = <0>;
+		};
 	};
 };

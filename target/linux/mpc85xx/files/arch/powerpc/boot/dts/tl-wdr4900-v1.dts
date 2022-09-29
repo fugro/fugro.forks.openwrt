@@ -9,6 +9,9 @@
  * option) any later version.
  */
 
+#include <dt-bindings/input/input.h>
+#include <dt-bindings/gpio/gpio.h>
+
 /include/ "fsl/p1010si-pre.dtsi"
 
 / {
@@ -18,12 +21,17 @@
 	chosen {
 		bootargs = "console=ttyS0,115200";
 /*
-		linux,stdout-path = "/soc@ffe00000/serial@4500";
+		stdout-path = "/soc@ffe00000/serial@4500";
 */
 	};
 
 	aliases {
 		spi0 = &spi0;
+		led-boot = &system_green;
+		led-failsafe = &system_green;
+		led-running = &system_green;
+		led-upgrade = &system_green;
+		label-mac-device = &enet0;
 	};
 
 	memory {
@@ -35,49 +43,52 @@
 
 		spi0: spi@7000 {
 			flash@0 {
-				#address-cells = <1>;
-				#size-cells = <1>;
 				compatible = "jedec,spi-nor";
 				reg = <0>;
 				spi-max-frequency = <25000000>;
 
-				u-boot@0 {
-					reg = <0x0 0x0050000>;
-					label = "u-boot";
-					read-only;
-				};
+				partitions {
+					compatible = "fixed-partitions";
+					#address-cells = <1>;
+					#size-cells = <1>;
 
-				dtb@50000 {
-					reg = <0x00050000 0x00010000>;
-					label = "dtb";
-					read-only;
-				};
+					uboot: partition@0 {
+						reg = <0x0 0x0050000>;
+						label = "u-boot";
+						read-only;
 
-				kernel@60000 {
-					reg = <0x00060000 0x002a0000>;
-					label = "kernel";
-				};
+						compatible = "nvmem-cells";
+						#address-cells = <1>;
+						#size-cells = <1>;
 
-				rootfs@300000 {
-					reg = <0x00300000 0x00ce0000>;
-					label = "rootfs";
-				};
+						macaddr_uboot_4fc00: macaddr@4fc00 {
+							reg = <0x4fc00 0x6>;
+						};
+					};
 
-				config: config@fe0000 {
-					reg = <0x00fe0000 0x00010000>;
-					label = "config";
-					read-only;
-				};
+					partition@50000 {
+						reg = <0x00050000 0x00010000>;
+						label = "dtb";
+						read-only;
+					};
 
-				caldata@ff0000 {
-					reg = <0x00ff0000 0x00010000>;
-					label = "caldata";
-					read-only;
-				};
+					partition@60000 {
+						compatible = "tplink,firmware";
+						reg = <0x00060000 0x00f80000>;
+						label = "firmware";
+					};
 
-				firmware@60000 {
-					reg = <0x00060000 0x00f80000>;
-					label = "firmware";
+					partition@fe0000 {
+						reg = <0x00fe0000 0x00010000>;
+						label = "config";
+						read-only;
+					};
+
+					partition@ff0000 {
+						reg = <0x00ff0000 0x00010000>;
+						label = "caldata";
+						read-only;
+					};
 				};
 			};
 		};
@@ -97,7 +108,7 @@
 					0x00004 0x07600000 /* PAD0_MODE */
 					0x00008 0x00000000 /* PAD5_MODE */
 					0x0000c 0x01000000 /* PAD6_MODE */
-					0x00010 0x40000000 /* POWER_ON_STRIP */
+					0x00010 0x40000000 /* POWER_ON_STRAP */
 					0x00050 0xcf35cf35 /* LED_CTRL0 */
 					0x00054 0xcf35cf35 /* LED_CTRL1 */
 					0x00058 0xcf35cf35 /* LED_CTRL2 */
@@ -119,7 +130,8 @@
 		enet0: ethernet@b0000 {
 			phy-handle = <&phy0>;
 			phy-connection-type = "rgmii-id";
-			mtd-mac-address = <&config 0x144>;
+			nvmem-cells = <&macaddr_uboot_4fc00>;
+			nvmem-cell-names = "mac-address";
 		};
 
 		enet1: ethernet@b1000 {
@@ -197,23 +209,23 @@
 	leds {
 		compatible = "gpio-leds";
 
-		system {
-			gpios = <&gpio0 2 1>; /* active low */
+		system_green: system {
+			gpios = <&gpio0 2 GPIO_ACTIVE_LOW>;
 			label = "tp-link:blue:system";
 		};
 
 		usb1 {
-			gpios = <&gpio0 3 1>; /* active low */
+			gpios = <&gpio0 3 GPIO_ACTIVE_LOW>;
 			label = "tp-link:green:usb1";
 		};
 
 		usb2 {
-			gpios = <&gpio0 4 1>; /* active low */
+			gpios = <&gpio0 4 GPIO_ACTIVE_LOW>;
 			label = "tp-link:green:usb2";
 		};
 
 		usbpower {
-			gpios = <&gpio0 10 1>; /* active low */
+			gpios = <&gpio0 10 GPIO_ACTIVE_LOW>;
 			label = "tp-link:usb:power";
 		};
 	};
@@ -223,16 +235,70 @@
 
 		reset {
 			label = "Reset button";
-			gpios = <&gpio0 5 1>; /* active low */
-			linux,code = <0x198>; /* KEY_RESTART */
+			gpios = <&gpio0 5 GPIO_ACTIVE_LOW>;
+			linux,code = <KEY_RESTART>;
 		};
 
 		rfkill {
 			label = "RFKILL switch";
-			gpios = <&gpio0 11 1>; /* active low */
-			linux,code = <0xf7>; /* RFKill */
+			gpios = <&gpio0 11 GPIO_ACTIVE_LOW>;
+			linux,code = <KEY_RFKILL>;
 		};
 	};
 };
 
 /include/ "fsl/p1010si-post.dtsi"
+
+/ {
+	cpus {
+		PowerPC,P1010@0 {
+			bus-frequency = <399999996>;
+			timebase-frequency = <49999999>;
+			clock-frequency = <799999992>;
+		};
+	};
+
+	memory {
+		reg = <0x0 0x0 0x0 0x8000000>;
+	};
+
+	soc@ffe00000 {
+		bus-frequency = <399999996>;
+
+		serial@4600 {
+			clock-frequency = <399999996>;
+		};
+
+		serial@4500 {
+			clock-frequency = <399999996>;
+		};
+
+		pic@40000 {
+			clock-frequency = <399999996>;
+		};
+	};
+};
+
+/*
+ * The TL-WDR4900 v1 uses the NXP (Freescale) P1014 SoC which is closely
+ * related to the P1010.
+ *
+ * NXP QP1010FS.pdf "QorIQ P1010 and P1014 Communications Processors"
+ * datasheet states that the P1014 does not include the accelerated crypto
+ * module (CAAM/SEC4) which is present in the P1010.
+ *
+ * NXP Appliation Note AN4938 Rev. 2 implies that some P1014 may contain the
+ * SEC4 module, but states that SoCs with System Version Register values
+ * 0x80F10110 or 0x80F10120 do not have the security feature.
+ *
+ * All v1.3 TL-WDR4900 tested have SVR == 0x80F10110 which AN4938 describes
+ * as: core rev 1.0, "P1014 (without security)".
+ *
+ * The SVR value is reported by uboot on the serial console.
+ */
+
+/ {
+	soc: soc@ffe00000 {
+		/delete-node/ crypto@30000; /* Pulled in by p1010si-post */
+	};
+};

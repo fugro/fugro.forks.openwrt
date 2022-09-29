@@ -8,15 +8,15 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=util-linux
-PKG_VERSION:=2.32
-PKG_RELEASE:=2
+PKG_VERSION:=2.37.3
+PKG_RELEASE:=$(AUTORELEASE)
 
 PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.xz
-PKG_SOURCE_URL:=@KERNEL/linux/utils/$(PKG_NAME)/v2.32
-PKG_HASH:=6c7397abc764e32e8159c2e96042874a190303e77adceb4ac5bd502a272a4734
+PKG_SOURCE_URL:=@KERNEL/linux/utils/$(PKG_NAME)/v2.37
+PKG_HASH:=590c592e58cd6bf38519cb467af05ce6a1ab18040e3e3418f24bcfb2f55f9776
 PKG_CPE_ID:=cpe:/a:kernel:util-linux
 
-PKG_LICENSE:=GPL-2.0
+PKG_LICENSE:=GPL-2.0-only
 PKG_LICENSE_FILES:=	COPYING					\
 			libblkid/COPYING			\
 			libmount/COPYING			\
@@ -47,6 +47,7 @@ $(call Package/util-linux/Default)
   TITLE:=block device id library
   SECTION:=libs
   CATEGORY:=Libraries
+  ABI_VERSION:=1
 endef
 
 define Package/libblkid/description
@@ -62,6 +63,7 @@ $(call Package/util-linux/Default)
   TITLE:=partition manipulating library
   SECTION:=libs
   CATEGORY:=Libraries
+  ABI_VERSION:=1
 endef
 
 define Package/libfdisk/description
@@ -74,6 +76,7 @@ $(call Package/util-linux/Default)
   TITLE:=mount library
   SECTION:=libs
   CATEGORY:=Libraries
+  ABI_VERSION:=1
 endef
 
 define Package/libmount/description
@@ -86,6 +89,7 @@ $(call Package/util-linux/Default)
   TITLE:=DCE compatible Universally Unique Identifier library
   SECTION:=libs
   CATEGORY:=Libraries
+  ABI_VERSION:=1
 endef
 
 define Package/libuuid/description
@@ -100,6 +104,7 @@ $(call Package/util-linux/Default)
   TITLE:=table or tree library
   SECTION:=libs
   CATEGORY:=Libraries
+  ABI_VERSION:=1
 endef
 
 define Package/libsmartcols/description
@@ -121,6 +126,7 @@ define Package/blkdiscard
 $(call Package/util-linux/Default)
   TITLE:=discard sectors on a device
   SUBMENU=Disc
+  DEPENDS:=libblkid
 endef
 
 define Package/blkdiscard/description
@@ -139,6 +145,16 @@ endef
 define Package/blkid/description
  The blkid program is the command-line interface to working with the libblkid
  library.
+endef
+
+define Package/blockdev
+$(call Package/util-linux/Default)
+  TITLE:=call block device ioctls from the command line
+  SUBMENU=Disc
+endef
+
+define Package/blockdev/description
+ The blockdev program is the command-line interface to call block device ioctls.
 endef
 
 define Package/cal
@@ -170,6 +186,18 @@ endef
 
 define Package/dmesg/description
  dmesg  is used to examine or control the kernel ring buffer
+endef
+
+define Package/eject
+$(call Package/util-linux/Default)
+  TITLE:=eject removable media
+  DEPENDS:= +libblkid +libmount +libuuid
+  SUBMENU=Disc
+endef
+
+define Package/eject/description
+  eject allows removable media (typically a CD-ROM, floppy disk, tape, or JAZ
+  or ZIP disk) to be ejected under software control.
 endef
 
 define Package/fdisk
@@ -237,9 +265,22 @@ define Package/hwclock/description
  hwclock is a tool for accessing the Hardware Clock
 endef
 
+define Package/ipcs
+$(call Package/util-linux/Default)
+  TITLE:=show information on IPC facilities
+endef
+
+define Package/ipcs/description
+  ipcs shows information on the inter-process communication facilities for
+  which the calling process has read access. By default it shows information
+  about all three resources: shared memory segments, message queues, and
+  semaphore arrays.
+endef
+
 define Package/logger
 $(call Package/util-linux/Default)
   TITLE:=a shell command interface to the syslog system log module
+  ALTERNATIVES:=200:/usr/bin/logger:/usr/bin/util-linux-logger
 endef
 
 define Package/logger/description
@@ -286,6 +327,36 @@ endef
 
 define Package/lscpu/description
  lscpu displays information about the CPU architecture
+endef
+
+define Package/lslocks
+$(call Package/util-linux/Default)
+  TITLE:=list local system locks
+  DEPENDS:= +libmount +libsmartcols
+endef
+
+define Package/lslocks/description
+ lslocks lists information about all the currently held file locks in a Linux system
+endef
+
+define Package/lsns
+$(call Package/util-linux/Default)
+  TITLE:=list system namespaces
+  DEPENDS:= +libblkid +libmount +libsmartcols
+endef
+
+define Package/lsns/description
+ lsns lists information about all namespaces and their processes
+endef
+
+define Package/more
+$(call Package/util-linux/Default)
+  TITLE:=filter for paging through text one screenful at a time
+  DEPENDS:= +libncurses
+endef
+
+define Package/more/description
+ more is a filter for paging through text one screenful at a time
 endef
 
 define Package/mcookie
@@ -404,6 +475,15 @@ define Package/swap-utils/description
  contains: mkswap, swaplabel
 endef
 
+define Package/taskset
+$(call Package/util-linux/Default)
+  TITLE:=set or retrieve a process's CPU affinity
+endef
+
+define Package/taskset/description
+ contains: taskset
+endef
+
 define Package/unshare
 $(call Package/util-linux/Default)
   TITLE:=unshare userspace tool
@@ -476,12 +556,19 @@ CONFIGURE_ARGS += \
 	--disable-use-tty-group		\
 	--disable-rpath			\
 	--disable-tls			\
+	--disable-su			\
 	--disable-sulogin		\
 	--disable-makeinstall-chown	\
+	--disable-login 		\
+	--disable-nologin		\
+	--disable-lslogins		\
+	--disable-runuser		\
+	--disable-chfn-chsh		\
+	--disable-raw			\
 	--without-python		\
 	--without-udev			\
 	--without-readline		\
-	--disable-more			\
+	--without-libmagic		\
 	--with-ncursesw
 
 TARGET_CFLAGS += $(FPIC) -std=gnu99
@@ -489,10 +576,20 @@ TARGET_CFLAGS += $(FPIC) -std=gnu99
 define Build/InstallDev
 	$(INSTALL_DIR) $(1)/usr/lib/pkgconfig
 	$(CP) $(PKG_INSTALL_DIR)/usr/lib/pkgconfig/blkid.pc $(1)/usr/lib/pkgconfig
+	$(SED) 's,/usr/include,$$$${prefix}/include,g' $(1)/usr/lib/pkgconfig/blkid.pc
+	$(SED) 's,/usr/lib,$$$${exec_prefix}/lib,g' $(1)/usr/lib/pkgconfig/blkid.pc
 	$(CP) $(PKG_INSTALL_DIR)/usr/lib/pkgconfig/fdisk.pc $(1)/usr/lib/pkgconfig
+	$(SED) 's,/usr/include,$$$${prefix}/include,g' $(1)/usr/lib/pkgconfig/fdisk.pc
+	$(SED) 's,/usr/lib,$$$${exec_prefix}/lib,g' $(1)/usr/lib/pkgconfig/fdisk.pc
 	$(CP) $(PKG_INSTALL_DIR)/usr/lib/pkgconfig/mount.pc $(1)/usr/lib/pkgconfig
+	$(SED) 's,/usr/include,$$$${prefix}/include,g' $(1)/usr/lib/pkgconfig/mount.pc
+	$(SED) 's,/usr/lib,$$$${exec_prefix}/lib,g' $(1)/usr/lib/pkgconfig/mount.pc
 	$(CP) $(PKG_INSTALL_DIR)/usr/lib/pkgconfig/smartcols.pc $(1)/usr/lib/pkgconfig
+	$(SED) 's,/usr/include,$$$${prefix}/include,g' $(1)/usr/lib/pkgconfig/smartcols.pc
+	$(SED) 's,/usr/lib,$$$${exec_prefix}/lib,g' $(1)/usr/lib/pkgconfig/smartcols.pc
 	$(CP) $(PKG_INSTALL_DIR)/usr/lib/pkgconfig/uuid.pc $(1)/usr/lib/pkgconfig
+	$(SED) 's,/usr/include,$$$${prefix}/include,g' $(1)/usr/lib/pkgconfig/uuid.pc
+	$(SED) 's,/usr/lib,$$$${exec_prefix}/lib,g' $(1)/usr/lib/pkgconfig/uuid.pc
 
 	$(INSTALL_DIR) $(1)/usr/include/blkid
 	$(CP) $(PKG_INSTALL_DIR)/usr/include/blkid/blkid.h $(1)/usr/include/blkid
@@ -522,32 +619,27 @@ endef
 
 define Package/libfdisk/install
 	$(INSTALL_DIR) $(1)/usr/lib
-	$(CP) $(PKG_INSTALL_DIR)/lib/libfdisk.so* $(1)/usr/lib/
-	$(LN) libfdisk.so.1 $(1)/usr/lib/libfdisk.so
+	$(CP) $(PKG_INSTALL_DIR)/lib/libfdisk.so.* $(1)/usr/lib/
 endef
 
 define Package/libblkid/install
 	$(INSTALL_DIR) $(1)/usr/lib
-	$(CP) $(PKG_INSTALL_DIR)/lib/libblkid.so* $(1)/usr/lib/
-	$(LN) libblkid.so.1 $(1)/usr/lib/libblkid.so
+	$(CP) $(PKG_INSTALL_DIR)/lib/libblkid.so.* $(1)/usr/lib/
 endef
 
 define Package/libmount/install
 	$(INSTALL_DIR) $(1)/usr/lib
-	$(CP) $(PKG_INSTALL_DIR)/lib/libmount.so* $(1)/usr/lib/
-	$(LN) libmount.so.1 $(1)/usr/lib/libmount.so
+	$(CP) $(PKG_INSTALL_DIR)/lib/libmount.so.* $(1)/usr/lib/
 endef
 
 define Package/libsmartcols/install
 	$(INSTALL_DIR) $(1)/usr/lib
-	$(CP) $(PKG_INSTALL_DIR)/lib/libsmartcols.so* $(1)/usr/lib/
-	$(LN) libsmartcols.so.1 $(1)/usr/lib/libsmartcols.so
+	$(CP) $(PKG_INSTALL_DIR)/lib/libsmartcols.so.* $(1)/usr/lib/
 endef
 
 define Package/libuuid/install
 	$(INSTALL_DIR) $(1)/usr/lib
-	$(CP) $(PKG_INSTALL_DIR)/lib/libuuid.so* $(1)/usr/lib/
-	$(LN) libuuid.so.1 $(1)/usr/lib/libuuid.so
+	$(CP) $(PKG_INSTALL_DIR)/lib/libuuid.so.* $(1)/usr/lib/
 endef
 
 define Package/agetty/install
@@ -565,6 +657,11 @@ define Package/blkid/install
 	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/sbin/blkid $(1)/usr/sbin/
 endef
 
+define Package/blockdev/install
+	$(INSTALL_DIR) $(1)/usr/sbin
+	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/sbin/blockdev $(1)/usr/sbin/
+endef
+
 define Package/cal/install
 	$(INSTALL_DIR) $(1)/usr/bin
 	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/bin/cal $(1)/usr/bin/
@@ -578,6 +675,11 @@ endef
 define Package/dmesg/install
 	$(INSTALL_DIR) $(1)/usr/bin
 	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/bin/dmesg $(1)/usr/bin/
+endef
+
+define Package/eject/install
+	$(INSTALL_DIR) $(1)/usr/bin
+	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/bin/eject $(1)/usr/bin/
 endef
 
 define Package/fdisk/install
@@ -610,9 +712,14 @@ define Package/hwclock/install
 	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/sbin/hwclock $(1)/usr/sbin/
 endef
 
+define Package/ipcs/install
+	$(INSTALL_DIR) $(1)/usr/bin
+	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/bin/ipcs $(1)/usr/bin/
+endef
+
 define Package/logger/install
 	$(INSTALL_DIR) $(1)/usr/bin
-	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/bin/logger $(1)/usr/bin/
+	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/bin/logger $(1)/usr/bin/util-linux-logger
 endef
 
 define Package/look/install
@@ -633,6 +740,21 @@ endef
 define Package/lscpu/install
 	$(INSTALL_DIR) $(1)/usr/bin
 	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/bin/lscpu $(1)/usr/bin/
+endef
+
+define Package/lslocks/install
+	$(INSTALL_DIR) $(1)/usr/bin
+	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/bin/lslocks $(1)/usr/bin/
+endef
+
+define Package/lsns/install
+	$(INSTALL_DIR) $(1)/usr/bin
+	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/bin/lsns $(1)/usr/bin/
+endef
+
+define Package/more/install
+	$(INSTALL_DIR) $(1)/usr/bin
+	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/bin/more $(1)/usr/bin/
 endef
 
 define Package/mcookie/install
@@ -696,6 +818,11 @@ define Package/swap-utils/install
 	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/sbin/swaplabel $(1)/usr/sbin/
 endef
 
+define Package/taskset/install
+	$(INSTALL_DIR) $(1)/usr/bin
+	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/bin/taskset $(1)/usr/bin/
+endef
+
 define Package/unshare/install
 	$(INSTALL_DIR) $(1)/usr/bin
 	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/bin/unshare $(1)/usr/bin/
@@ -726,28 +853,36 @@ define Package/wipefs/install
 	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/sbin/wipefs $(1)/usr/sbin/
 endef
 
+# these lines need to be ordered by dependency because of ABI versioning
+$(eval $(call BuildPackage,libuuid))
 $(eval $(call BuildPackage,libblkid))
 $(eval $(call BuildPackage,libfdisk))
+
 $(eval $(call BuildPackage,libmount))
 $(eval $(call BuildPackage,libsmartcols))
-$(eval $(call BuildPackage,libuuid))
 $(eval $(call BuildPackage,agetty))
 $(eval $(call BuildPackage,blkdiscard))
 $(eval $(call BuildPackage,blkid))
+$(eval $(call BuildPackage,blockdev))
 $(eval $(call BuildPackage,cal))
 $(eval $(call BuildPackage,cfdisk))
 $(eval $(call BuildPackage,dmesg))
+$(eval $(call BuildPackage,eject))
 $(eval $(call BuildPackage,fdisk))
 $(eval $(call BuildPackage,findfs))
 $(eval $(call BuildPackage,flock))
 $(eval $(call BuildPackage,fstrim))
 $(eval $(call BuildPackage,getopt))
 $(eval $(call BuildPackage,hwclock))
+$(eval $(call BuildPackage,ipcs))
 $(eval $(call BuildPackage,logger))
 $(eval $(call BuildPackage,look))
 $(eval $(call BuildPackage,losetup))
 $(eval $(call BuildPackage,lsblk))
 $(eval $(call BuildPackage,lscpu))
+$(eval $(call BuildPackage,lslocks))
+$(eval $(call BuildPackage,lsns))
+$(eval $(call BuildPackage,more))
 $(eval $(call BuildPackage,mcookie))
 $(eval $(call BuildPackage,mount-utils))
 $(eval $(call BuildPackage,namei))
@@ -759,6 +894,7 @@ $(eval $(call BuildPackage,script-utils))
 $(eval $(call BuildPackage,setterm))
 $(eval $(call BuildPackage,sfdisk))
 $(eval $(call BuildPackage,swap-utils))
+$(eval $(call BuildPackage,taskset))
 $(eval $(call BuildPackage,unshare))
 $(eval $(call BuildPackage,uuidd))
 $(eval $(call BuildPackage,uuidgen))
